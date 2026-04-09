@@ -17,7 +17,9 @@ export async function GET() {
   // Try raw libsql connection
   if (tursoUrl && tursoToken) {
     try {
-      const client = createClient({ url: tursoUrl, authToken: tursoToken });
+      // Convert libsql:// to https:// for web client compatibility
+      const httpUrl = tursoUrl.replace("libsql://", "https://");
+      const client = createClient({ url: httpUrl, authToken: tursoToken });
       const result = await client.execute("SELECT COUNT(*) as cnt FROM Veiculo");
       info.libsql_raw = `OK - ${result.rows[0].cnt} veiculos`;
       client.close();
