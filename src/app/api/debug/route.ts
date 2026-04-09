@@ -1,31 +1,31 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@libsql/client/web";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  const tursoUrl = process.env.TURSO_DATABASE_URL || "";
+  const tursoToken = process.env.TURSO_AUTH_TOKEN || "";
 
-  const info: Record<string, string> = {
-    TURSO_DATABASE_URL: tursoUrl ? tursoUrl.substring(0, 40) + "..." : "NOT SET",
-    TURSO_AUTH_TOKEN: tursoToken ? `SET (len=${tursoToken.length})` : "NOT SET",
-    DATABASE_URL: process.env.DATABASE_URL || "NOT SET",
-    NODE_ENV: process.env.NODE_ENV || "unknown",
+  // Show exact URL details for debugging
+  const info: Record<string, unknown> = {
+    url_length: tursoUrl.length,
+    url_full: tursoUrl,
+    url_chars: Array.from(tursoUrl.substring(0, 10)).map(c => c.charCodeAt(0)),
+    token_length: tursoToken.length,
+    token_first10: tursoToken.substring(0, 10),
   };
 
-  // Try raw libsql connection
-  if (tursoUrl && tursoToken) {
-    try {
-      // Convert libsql:// to https:// for web client compatibility
-      const httpUrl = tursoUrl.replace("libsql://", "https://");
-      const client = createClient({ url: httpUrl, authToken: tursoToken });
-      const result = await client.execute("SELECT COUNT(*) as cnt FROM Veiculo");
-      info.libsql_raw = `OK - ${result.rows[0].cnt} veiculos`;
-      client.close();
-    } catch (e) {
-      info.libsql_raw = `ERROR: ${e instanceof Error ? e.message : String(e)}`;
-    }
+  // Try with hardcoded https URL
+  try {
+    const { createClient } = await import("@libsql/client/web");
+    const httpUrl = tursoUrl.replace("libsql://", "https://");
+    info.httpUrl = httpUrl;
+    const client = createClient({ url: httpUrl, authToken: tursoToken });
+    const result = await client.execute("SELECT COUNT(*) as cnt FROM Veiculo");
+    info.result = `OK: ${result.rows[0].cnt}`;
+  } catch (e) {
+    info.error = e instanceof Error ? e.message : String(e);
+    info.stack = e instanceof Error ? e.stack?.split("\n").slice(0, 3) : undefined;
   }
 
   return NextResponse.json(info);
