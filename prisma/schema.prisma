@@ -1,0 +1,197 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Usuario {
+  id             String    @id @default(cuid())
+  nome           String
+  email          String    @unique
+  senha          String
+  tipo           String    @default("OPERADOR") // OPERADOR | ADMINISTRADOR
+  ativo          Boolean   @default(true)
+  matricula      String?
+  fotoPerfil     String?
+  primeiroAcesso Boolean   @default(true)
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+  ultimoLogin    DateTime?
+}
+
+model Veiculo {
+  id            String   @id @default(cuid())
+  placa         String   @unique
+  modelo        String
+  marca         String
+  ano           Int
+  cor           String
+  quilometragem Float    @default(0)
+  valorVeiculo  Float?
+  tipo          String   // carro | van | caminhao | onibus
+  status        String   @default("disponivel") // disponivel | em_uso | manutencao | inativo
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  viagens      Viagem[]
+  agendamentos Agendamento[]
+  manutencoes  Manutencao[]
+  imagens      ImagemVeiculo[]
+  alertasKm    AlertaKm[]
+}
+
+model ImagemVeiculo {
+  id        String   @id @default(cuid())
+  veiculoId String
+  url       String
+  descricao String?
+  criadoEm  DateTime @default(now())
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+
+  @@index([veiculoId])
+}
+
+model AlertaKm {
+  id            String   @id @default(cuid())
+  veiculoId     String
+  tipo          String
+  intervaloKm   Float
+  ultimaTrocaKm Float    @default(0)
+  alertaAntesDe Float    @default(1000)
+  emailGestor   String
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now())
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+
+  @@index([veiculoId])
+}
+
+model Motorista {
+  id           String   @id @default(cuid())
+  nome         String
+  cpf          String   @unique
+  cnh          String   @unique
+  categoriaCnh String
+  telefone     String
+  email        String
+  status       String   @default("ativo") // ativo | inativo | suspenso
+  criadoEm     DateTime @default(now())
+
+  viagens       Viagem[] @relation("motorista1")
+  viagensComoM2 Viagem[] @relation("motorista2")
+}
+
+model Unidade {
+  id       String   @id @default(cuid())
+  sigla    String   @unique
+  nome     String
+  ativo    Boolean  @default(true)
+  criadoEm DateTime @default(now())
+
+  viagens Viagem[]
+}
+
+model Viagem {
+  id            String    @id @default(cuid())
+  veiculoId     String
+  motoristaId   String
+  origem        String
+  destino       String
+  dataSaida     DateTime
+  dataRetorno   DateTime?
+  kmInicial     Float
+  kmFinal       Float?
+  status        String    @default("agendada") // agendada | em_andamento | concluida | cancelada
+  observacoes   String?
+  processoSei   String?
+  unidadeId     String?
+  ufDestino     String?
+  diaria        Float?
+  solicitante   String?
+  motorista2Id  String?
+  kmPorTrecho   Float?
+  qtdDiarias    Float?
+  pcdpNumero    String?
+  pcdpData      String?
+  pcdpValor     Float?
+  pcdp2Solicitante String?
+  pcdp2Numero   String?
+  pcdp2Data     String?
+  pcdp2Valor    Float?
+  totalDiarias  Float?
+  criadoEm      DateTime  @default(now())
+
+  veiculo    Veiculo    @relation(fields: [veiculoId], references: [id])
+  motorista  Motorista  @relation("motorista1", fields: [motoristaId], references: [id])
+  motorista2 Motorista? @relation("motorista2", fields: [motorista2Id], references: [id])
+  unidade    Unidade?   @relation(fields: [unidadeId], references: [id])
+
+  @@index([veiculoId])
+  @@index([motoristaId])
+  @@index([motorista2Id])
+  @@index([unidadeId])
+}
+
+model Agendamento {
+  id          String   @id @default(cuid())
+  veiculoId   String
+  solicitante String
+  motivo      String
+  dataInicio  DateTime
+  dataFim     DateTime
+  status      String   @default("pendente") // pendente | aprovado | rejeitado | cancelado
+  criadoEm    DateTime @default(now())
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id])
+
+  @@index([veiculoId])
+}
+
+model Manutencao {
+  id            String    @id @default(cuid())
+  veiculoId     String
+  tipo          String    // preventiva | corretiva
+  descricao     String
+  dataEntrada   DateTime
+  previsaoSaida DateTime?
+  previsaoDias  Int       @default(0)
+  custoEstimado Float?
+  valorTotal    Float?
+  status        String    @default("aguardando") // aguardando | em_andamento | concluida | cancelada
+  criadoEm      DateTime  @default(now())
+
+  veiculo   Veiculo         @relation(fields: [veiculoId], references: [id])
+  checklist ChecklistItem[]
+  itens     ItemManutencao[]
+
+  @@index([veiculoId])
+}
+
+model ChecklistItem {
+  id           String  @id @default(cuid())
+  manutencaoId String
+  categoria    String
+  temProblema  Boolean @default(false)
+  descricao    String?
+
+  manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([manutencaoId])
+}
+
+model ItemManutencao {
+  id           String  @id @default(cuid())
+  manutencaoId String
+  servico      String
+  valor        Float   @default(0)
+  observacao   String?
+
+  manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+
+  @@index([manutencaoId])
+}
