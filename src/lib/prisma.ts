@@ -33,6 +33,6 @@ export const prisma = new Proxy({} as InstanceType<typeof PrismaClient>, {
     if (!_prisma) {
       _prisma = createPrismaClient();
     }
-    return (_prisma as Record<string | symbol, unknown>)[prop];
+    return (_prisma as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
