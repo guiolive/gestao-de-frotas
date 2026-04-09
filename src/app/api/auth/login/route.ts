@@ -52,8 +52,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (err) {
-    console.error("[login] Erro:", err instanceof Error ? err.message : err);
-    console.error("[login] Stack:", err instanceof Error ? err.stack : "no stack");
-    return NextResponse.json({ error: "Erro interno", detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    console.error("[login] Erro:", err);
+    return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }
