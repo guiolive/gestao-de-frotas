@@ -4,8 +4,8 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 let _prisma: InstanceType<typeof PrismaClient> | null = null;
 
 function createPrismaClient() {
-  const tursoUrl = process.env.TURSO_DATABASE_URL;
-  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  const tursoUrl = process.env.TURSO_DATABASE_URL?.trim();
+  const tursoToken = process.env.TURSO_AUTH_TOKEN?.trim();
 
   let url: string;
   let authToken: string | undefined;
@@ -23,16 +23,14 @@ function createPrismaClient() {
     }
   }
 
-  console.log("[prisma] Creating client for:", url.substring(0, 50));
+  console.log("[prisma] Connecting to:", url.substring(0, 50));
   const adapter = new PrismaLibSql(authToken ? { url, authToken } : { url });
   return new PrismaClient({ adapter });
 }
 
 export const prisma = new Proxy({} as InstanceType<typeof PrismaClient>, {
   get(_target, prop) {
-    if (!_prisma) {
-      _prisma = createPrismaClient();
-    }
+    if (!_prisma) _prisma = createPrismaClient();
     return (_prisma as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
