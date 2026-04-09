@@ -4,20 +4,30 @@ import { PrismaLibSql } from "@prisma/adapter-libsql";
 const globalForPrisma = globalThis as unknown as { prisma: InstanceType<typeof PrismaClient> };
 
 function createPrismaClient() {
-  const url = process.env.TURSO_DATABASE_URL || process.env.DATABASE_URL || "file:./dev.db";
-  const authToken = process.env.TURSO_AUTH_TOKEN;
+  const tursoUrl = process.env.TURSO_DATABASE_URL;
+  const tursoToken = process.env.TURSO_AUTH_TOKEN;
+  const dbUrl = process.env.DATABASE_URL || "file:./dev.db";
 
-  // Local SQLite: resolve relative paths
-  let resolvedUrl = url;
-  if (url.startsWith("file:./")) {
-    const rel = url.replace("file:./", "");
-    resolvedUrl = `file:${process.cwd()}/${rel}`;
+  let url: string;
+  let authToken: string | undefined;
+
+  if (tursoUrl) {
+    // Production: use Turso
+    url = tursoUrl;
+    authToken = tursoToken;
+    console.log("[prisma] Using Turso:", url);
+  } else if (dbUrl.startsWith("file:./")) {
+    // Local: resolve relative path
+    const rel = dbUrl.replace("file:./", "");
+    url = `file:${process.cwd()}/${rel}`;
+    console.log("[prisma] Using local SQLite:", url);
+  } else {
+    url = dbUrl;
+    console.log("[prisma] Using:", url);
   }
 
-  console.log("[prisma] Connecting to:", resolvedUrl.startsWith("libsql") ? resolvedUrl.split("?")[0] : resolvedUrl);
-
   const adapter = new PrismaLibSql({
-    url: resolvedUrl,
+    url,
     ...(authToken ? { authToken } : {}),
   });
   return new PrismaClient({ adapter });
