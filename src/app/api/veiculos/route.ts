@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { validateBody, veiculoCreateSchema } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -14,19 +15,18 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const [data, err] = await validateBody(request, veiculoCreateSchema);
+  if (err) return err;
 
-  const veiculo = await prisma.veiculo.create({
-    data: {
-      placa: body.placa,
-      modelo: body.modelo,
-      marca: body.marca,
-      ano: Number(body.ano),
-      cor: body.cor,
-      quilometragem: Number(body.quilometragem) || 0,
-      tipo: body.tipo,
-    },
-  });
+  // Unicidade de placa
+  const existente = await prisma.veiculo.findUnique({ where: { placa: data.placa } });
+  if (existente) {
+    return Response.json(
+      { error: "Já existe um veículo com essa placa." },
+      { status: 409 }
+    );
+  }
 
+  const veiculo = await prisma.veiculo.create({ data });
   return Response.json(veiculo, { status: 201 });
 }

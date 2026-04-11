@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { validateBody, unidadeCreateSchema } from "@/lib/validation";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -19,19 +20,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const [data, err] = await validateBody(request, unidadeCreateSchema);
+  if (err) return err;
 
-  const sigla = (body.sigla as string).trim().toUpperCase();
-  const nome = (body.nome as string).trim();
-
-  if (!sigla || !nome) {
-    return Response.json(
-      { error: "Sigla e nome são obrigatórios" },
-      { status: 400 }
-    );
-  }
-
-  const existente = await prisma.unidade.findUnique({ where: { sigla } });
+  const existente = await prisma.unidade.findUnique({
+    where: { sigla: data.sigla },
+  });
   if (existente) {
     return Response.json(
       { error: "Já existe uma unidade com essa sigla" },
@@ -39,9 +33,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const unidade = await prisma.unidade.create({
-    data: { sigla, nome },
-  });
-
+  const unidade = await prisma.unidade.create({ data });
   return Response.json(unidade, { status: 201 });
 }
