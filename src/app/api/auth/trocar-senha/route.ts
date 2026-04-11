@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { compararSenha, hashSenha, gerarToken, validarSenhaForte } from "@/lib/auth";
+import { requireAuth } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function POST(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
+  const userId = user.id;
 
   const { senhaAtual, novaSenha } = await request.json();
   if (!senhaAtual || !novaSenha) {
@@ -27,6 +31,16 @@ export async function POST(request: NextRequest) {
   await prisma.usuario.update({
     where: { id: userId },
     data: { senha: senhaHash, primeiroAcesso: false },
+  });
+
+  await logAudit({
+    request,
+    user,
+    acao: "update",
+    recurso: "usuario_senha",
+    recursoId: userId,
+    // NUNCA persistir senhas no audit log — só metadados
+    dados: { primeiroAcesso: usuario.primeiroAcesso },
   });
 
   const token = await gerarToken({ id: usuario.id, email: usuario.email, tipo: usuario.tipo });

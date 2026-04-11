@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { compararSenha, gerarToken } from "@/lib/auth";
 import { validateBody, loginSchema } from "@/lib/validation";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
+import { logAudit } from "@/lib/audit";
 
 export const runtime = "nodejs";
 
@@ -39,6 +40,13 @@ export async function POST(request: NextRequest) {
     });
 
     if (!usuario || !usuario.ativo) {
+      await logAudit({
+        request,
+        usuarioId: usuario?.id ?? null,
+        acao: "login_failure",
+        recurso: "auth",
+        dados: { email: data.email, motivo: usuario ? "inativo" : "nao_encontrado" },
+      });
       return NextResponse.json(
         { error: "Credenciais invalidas" },
         { status: 401 }
@@ -46,6 +54,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!compararSenha(data.senha, usuario.senha)) {
+      await logAudit({
+        request,
+        usuarioId: usuario.id,
+        acao: "login_failure",
+        recurso: "auth",
+        dados: { email: data.email, motivo: "senha_incorreta" },
+      });
       return NextResponse.json(
         { error: "Credenciais invalidas" },
         { status: 401 }
@@ -55,6 +70,14 @@ export async function POST(request: NextRequest) {
     await prisma.usuario.update({
       where: { id: usuario.id },
       data: { ultimoLogin: new Date() },
+    });
+
+    await logAudit({
+      request,
+      usuarioId: usuario.id,
+      acao: "login_success",
+      recurso: "auth",
+      dados: { email: usuario.email, tipo: usuario.tipo },
     });
 
     const token = await gerarToken({

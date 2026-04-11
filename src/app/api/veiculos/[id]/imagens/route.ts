@@ -3,6 +3,8 @@ import { NextRequest } from "next/server";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { requireTipo } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES: Record<string, string> = {
@@ -63,6 +65,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const { id } = await params;
 
   // Confirmar veículo existe
@@ -137,6 +142,15 @@ export async function POST(
     },
   });
 
+  await logAudit({
+    request,
+    user,
+    acao: "create",
+    recurso: "imagem_veiculo",
+    recursoId: imagem.id,
+    dados: { veiculoId: id, url, descricao: descricao || null, mime: realMime, size: file.size },
+  });
+
   return Response.json(imagem, { status: 201 });
 }
 
@@ -144,6 +158,9 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const { id } = await params;
   const { searchParams } = request.nextUrl;
   const imagemId = searchParams.get("imagemId");
@@ -163,6 +180,15 @@ export async function DELETE(
       { status: 404 }
     );
   }
+
+  await logAudit({
+    request,
+    user,
+    acao: "delete",
+    recurso: "imagem_veiculo",
+    recursoId: imagemId,
+    dados: { veiculoId: id },
+  });
 
   return Response.json({ ok: true });
 }

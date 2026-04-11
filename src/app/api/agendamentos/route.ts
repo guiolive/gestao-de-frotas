@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const agendamentos = await prisma.agendamento.findMany({
@@ -10,6 +12,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const body = await request.json();
 
   const dataInicio = new Date(body.dataInicio);
@@ -42,6 +47,15 @@ export async function POST(request: NextRequest) {
       dataInicio,
       dataFim,
     },
+  });
+
+  await logAudit({
+    request,
+    user,
+    acao: "create",
+    recurso: "agendamento",
+    recursoId: agendamento.id,
+    dados: agendamento,
   });
 
   return Response.json(agendamento, { status: 201 });

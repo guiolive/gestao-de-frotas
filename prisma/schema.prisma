@@ -20,6 +20,29 @@ model Usuario {
   criadoEm       DateTime  @default(now())
   atualizadoEm   DateTime  @updatedAt
   ultimoLogin    DateTime?
+
+  auditLogs AuditLog[]
+}
+
+/// Trilha de auditoria de ações sensíveis (mutations).
+/// `dados` guarda snapshot do payload (JSON serializado) — útil pra forense
+/// mas pode crescer rápido; revisar retenção em produção.
+model AuditLog {
+  id         String   @id @default(cuid())
+  usuarioId  String?
+  acao       String   // login_success | login_failure | create | update | delete
+  recurso    String   // veiculo | motorista | unidade | usuario | viagem | ...
+  recursoId  String?  // id do recurso afetado (null em login)
+  dados      String?  // JSON.stringify do payload/snapshot
+  ip         String?
+  userAgent  String?
+  criadoEm   DateTime @default(now())
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
+
+  @@index([usuarioId])
+  @@index([recurso, recursoId])
+  @@index([criadoEm])
 }
 
 model Veiculo {

@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/authz";
 
 export async function GET(request: NextRequest) {
-  const userId = request.headers.get("x-user-id");
-  if (!userId) return NextResponse.json({ error: "Nao autorizado" }, { status: 401 });
+  const [user, err] = requireAuth(request);
+  if (err) return err;
 
   const usuario = await prisma.usuario.findUnique({
-    where: { id: userId },
+    where: { id: user.id },
     select: { id: true, nome: true, email: true, tipo: true, ativo: true, matricula: true, primeiroAcesso: true, criadoEm: true, ultimoLogin: true },
   });
 

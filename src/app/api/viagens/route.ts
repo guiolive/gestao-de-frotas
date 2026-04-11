@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -27,6 +29,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const body = await request.json();
 
   // Validate required fields
@@ -82,6 +87,15 @@ export async function POST(request: NextRequest) {
       pcdp2Valor: body.pcdp2Valor ? Number(body.pcdp2Valor) : null,
       totalDiarias: body.totalDiarias ? Number(body.totalDiarias) : null,
     },
+  });
+
+  await logAudit({
+    request,
+    user,
+    acao: "create",
+    recurso: "viagem",
+    recursoId: viagem.id,
+    dados: viagem,
   });
 
   return Response.json(viagem, { status: 201 });

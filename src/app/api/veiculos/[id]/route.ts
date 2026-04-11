@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireTipo } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
@@ -22,6 +24,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const { id } = await params;
   const body = await request.json();
 
@@ -41,16 +46,40 @@ export async function PUT(
     },
   });
 
+  await logAudit({
+    request,
+    user,
+    acao: "update",
+    recurso: "veiculo",
+    recursoId: id,
+    dados: veiculo,
+  });
+
   return Response.json(veiculo);
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const { id } = await params;
 
+  // Snapshot pré-delete pra trilha (se sumir, ainda temos os dados)
+  const snapshot = await prisma.veiculo.findUnique({ where: { id } });
+
   await prisma.veiculo.delete({ where: { id } });
+
+  await logAudit({
+    request,
+    user,
+    acao: "delete",
+    recurso: "veiculo",
+    recursoId: id,
+    dados: snapshot,
+  });
 
   return Response.json({ ok: true });
 }

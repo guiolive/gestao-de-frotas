@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth, requireTipo } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
@@ -27,6 +29,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = await params;
   const body = await request.json();
 
@@ -120,13 +125,25 @@ export async function PUT(
     },
   });
 
+  await logAudit({
+    request,
+    user,
+    acao: "update",
+    recurso: "viagem",
+    recursoId: id,
+    dados: { status: body.status, ...data },
+  });
+
   return Response.json(viagem);
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const { id } = await params;
 
   const viagem = await prisma.viagem.findUnique({ where: { id } });
@@ -142,5 +159,15 @@ export async function DELETE(
   }
 
   await prisma.viagem.delete({ where: { id } });
+
+  await logAudit({
+    request,
+    user,
+    acao: "delete",
+    recurso: "viagem",
+    recursoId: id,
+    dados: viagem,
+  });
+
   return Response.json({ ok: true });
 }

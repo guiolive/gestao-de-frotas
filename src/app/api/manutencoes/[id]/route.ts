@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
@@ -22,6 +24,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = await params;
   const body = await request.json();
 
@@ -112,6 +117,15 @@ export async function PUT(
   const updated = await prisma.manutencao.findUnique({
     where: { id },
     include: { veiculo: true, checklist: true, itens: true },
+  });
+
+  await logAudit({
+    request,
+    user,
+    acao: "update",
+    recurso: "manutencao",
+    recursoId: id,
+    dados: { status: body.status, ...data },
   });
 
   return Response.json(updated);

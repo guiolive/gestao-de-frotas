@@ -13,44 +13,58 @@ Documento vivo de acompanhamento da implementação do sistema. Espelha o board 
 
 ---
 
-## 🟡 Fase 0 — Correções de Segurança (OWASP) — ATIVO
+## ✅ Fase 0 — Correções de Segurança (OWASP) — CONCLUÍDA
 
 Correções críticas identificadas na análise OWASP Top 10. **Bloqueia** o deploy em produção.
 
-- [ ] **Verificar se `src/proxy.ts` está sendo executado**
-  O arquivo usa nome fora do padrão Next.js (deveria ser `middleware.ts`). Se não estiver rodando, todas as rotas estão abertas.
+- [x] **Verificar se `src/proxy.ts` está sendo executado**
+  Falso alarme — `proxy.ts` é a nova convenção do Next 16 (substitui `middleware.ts`). Confirmado em `node_modules/next/dist/docs/.../proxy.md`.
   *OWASP A01:2021 — Broken Access Control · 🔴 CRÍTICO*
 
-- [ ] **Remover fallback hard-coded do `JWT_SECRET`** (`src/lib/jwt.ts:5`)
-  Fazer o app crashar se a env var faltar.
+- [x] **Remover fallback hard-coded do `JWT_SECRET`** (`src/lib/jwt.ts:5`)
+  App agora crasha no boot se a env var faltar ou tiver < 32 chars.
   *OWASP A02:2021*
 
-- [ ] **Validar upload de imagens** (`src/app/api/veiculos/[id]/imagens/route.ts`)
-  Whitelist de extensões (jpg/png/webp), limite de 5 MB, verificar MIME real.
+- [x] **Validar upload de imagens** (`src/app/api/veiculos/[id]/imagens/route.ts`)
+  Whitelist MIME (jpg/png/webp), limite 5 MB, magic bytes validados, extensão derivada do MIME validado (não do nome original).
   *OWASP A03:2021*
 
-- [ ] **Adicionar validação de input com Zod** em todas as rotas POST/PUT
-  Schemas por recurso, validar antes de tocar no Prisma.
+- [x] **Adicionar validação de input com Zod** em todas as rotas POST/PUT
+  Helper `validateBody()` + schemas em `src/lib/validation.ts`. Aplicado em `/api/veiculos`, `/api/motoristas`, `/api/unidades`, `/api/auth/login`. Pendente em viagens/agendamentos/manutencoes/trocar-senha (Fase 2 ou backlog).
   *OWASP A03:2021*
 
-- [ ] **Rate limit em `/api/auth/login`**
-  5 tentativas/min por IP. Usar `@upstash/ratelimit` ou memória.
+- [x] **Rate limit em `/api/auth/login`**
+  5 tentativas/min por IP, sliding window in-memory, retorna 429 + `Retry-After`. Migração pra `@upstash/ratelimit` adiada pra Fase 5 (multi-instance).
   *OWASP A04:2021 / A07:2021*
 
 ---
 
-## ⏸️ Fase 1 — Autorização e RBAC
+## ✅ Fase 1 — Autorização e RBAC — CONCLUÍDA
 
 Controle de acesso por tipo de usuário e prevenção de IDOR.
 
-- [ ] **Implementar RBAC por tipo de usuário** (`OPERADOR` x `ADMINISTRADOR`)
-  Helper `requireTipo(['ADMINISTRADOR'])` aplicado em rotas sensíveis.
+- [x] **Fix do `proxy.ts`: forwarding de request headers** (descoberto durante a Fase 1)
+  Bug crítico latente: o proxy fazia `response.headers.set("x-user-id", ...)`, que seta header de **resposta**, não de request. Resultado: `request.headers.get("x-user-id")` no route handler retornava `null` em todas as rotas. Corrigido com `NextResponse.next({ request: { headers: requestHeaders } })`. Sem esse fix, o RBAC não teria como funcionar.
+  *OWASP A01:2021*
 
-- [ ] **Prevenir IDOR em recursos aninhados**
-  Sempre fazer WHERE com parent + child. Ex: `DELETE /api/veiculos/[id]/imagens?imagemId=X`.
+- [x] **Implementar RBAC por tipo de usuário** (`OPERADOR` x `ADMINISTRADOR`)
+  Helpers `requireAuth(req)` e `requireTipo(req, ['ADMINISTRADOR'])` em `src/lib/authz.ts` (tupla `[user, errorResponse]`, padrão do `validateBody`). Aplicado em:
+  - **ADMIN-only:** POST/PUT/DELETE de veiculos, motoristas, unidades; POST/DELETE de imagens e alertas; DELETE de viagens/agendamentos.
+  - **Operador OK:** POST/PUT de viagens, agendamentos, manutencoes; trocar-senha.
+  - **GETs:** continuam abertos a qualquer usuário autenticado (proxy garante).
 
-- [ ] **Audit log (trilha de auditoria)**
-  Tabela `AuditLog(id, usuarioId, acao, recurso, recursoId, dados, criadoEm)` + middleware.
+- [x] **Prevenir IDOR em recursos aninhados**
+  - `DELETE /api/veiculos/[id]/imagens?imagemId=X` → já estava OK (Fase 0)
+  - `DELETE /api/veiculos/[id]/alertas?alertaId=X` → migrado de `delete()` pra `deleteMany()` com WHERE composto (parent + child)
+  - `POST` em ambos: `veiculoId` vem da URL, não do body — sem IDOR possível
+  - Demais rotas (`viagens/[id]`, `manutencoes/[id]`, `agendamentos/[id]`) são flat (sem parent na URL); ownership não é por usuário, então RBAC cobre o caso.
+
+- [x] **Audit log (trilha de auditoria)**
+  - Migration `20260411164006_add_audit_log` criando `AuditLog(id, usuarioId, acao, recurso, recursoId, dados, ip, userAgent, criadoEm)` com índices em `usuarioId`, `(recurso, recursoId)` e `criadoEm`
+  - Helper `src/lib/audit.ts` → `logAudit({ user, acao, recurso, recursoId, dados, request })` com fire-and-forget (nunca quebra request pai), captura IP via X-Forwarded-For e User-Agent
+  - **Snapshot mode:** payloads serializados via `JSON.stringify` (decisão do usuário — útil pra forense, revisar retenção em produção)
+  - **Senhas NUNCA persistidas:** trocar-senha audita só metadados
+  - Aplicado em: login_success/login_failure, CRUD de veiculos/motoristas/unidades/viagens/agendamentos/manutencoes/imagens/alertas, trocar-senha
   *OWASP A09:2021*
 
 ---

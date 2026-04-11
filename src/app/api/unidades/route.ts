@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, unidadeCreateSchema } from "@/lib/validation";
+import { requireTipo } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = request.nextUrl;
@@ -20,6 +22,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   const [data, err] = await validateBody(request, unidadeCreateSchema);
   if (err) return err;
 
@@ -34,5 +39,15 @@ export async function POST(request: NextRequest) {
   }
 
   const unidade = await prisma.unidade.create({ data });
+
+  await logAudit({
+    request,
+    user,
+    acao: "create",
+    recurso: "unidade",
+    recursoId: unidade.id,
+    dados: unidade,
+  });
+
   return Response.json(unidade, { status: 201 });
 }

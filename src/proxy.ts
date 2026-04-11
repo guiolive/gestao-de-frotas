@@ -39,12 +39,20 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Pass user info to API routes via headers
-  const response = NextResponse.next();
-  response.headers.set("x-user-id", payload.id);
-  response.headers.set("x-user-tipo", payload.tipo);
-  response.headers.set("x-user-email", payload.email);
-  return response;
+  // Pass user info forward to route handlers via REQUEST headers.
+  // IMPORTANT: NextResponse.next({ request: { headers } }) sets headers
+  // upstream (visible to handlers via request.headers.get). Setting them on
+  // response.headers would only send them back to the client, leaving
+  // route handlers reading `null`. See:
+  // node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-user-id", payload.id);
+  requestHeaders.set("x-user-tipo", payload.tipo);
+  requestHeaders.set("x-user-email", payload.email);
+
+  return NextResponse.next({
+    request: { headers: requestHeaders },
+  });
 }
 
 export const config = {

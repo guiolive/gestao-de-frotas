@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/authz";
+import { logAudit } from "@/lib/audit";
 
 export async function GET() {
   const manutencoes = await prisma.manutencao.findMany({
@@ -10,6 +12,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const [user, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const body = await request.json();
 
   // Validate required fields
@@ -67,6 +72,15 @@ export async function POST(request: NextRequest) {
   await prisma.veiculo.update({
     where: { id: body.veiculoId },
     data: { status: "manutencao" },
+  });
+
+  await logAudit({
+    request,
+    user,
+    acao: "create",
+    recurso: "manutencao",
+    recursoId: manutencao.id,
+    dados: manutencao,
   });
 
   return Response.json(manutencao, { status: 201 });
