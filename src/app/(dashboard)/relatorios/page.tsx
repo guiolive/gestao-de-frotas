@@ -57,6 +57,26 @@ function formatCurrency(value: number) {
   });
 }
 
+function exportCSV(data: CustoVeiculo[], custosPorMes: CustoMes[]) {
+  // Sheet 1: Custos por veículo
+  let csv = "Placa;Modelo;Marca;Custo Total;Qtd Manutenções\n";
+  data.forEach((v) => {
+    csv += `${v.placa};${v.modelo};${v.marca};${v.custoTotal.toFixed(2)};${v.qtdManutencoes}\n`;
+  });
+  csv += "\n\nMês;Custo\n";
+  custosPorMes.forEach((m) => {
+    csv += `${m.mes};${m.custo.toFixed(2)}\n`;
+  });
+
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `relatorio-custos-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function RelatoriosPage() {
   const [data, setData] = useState<RelatorioData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -137,6 +157,13 @@ export default function RelatoriosPage() {
           className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
         >
           Limpar
+        </button>
+        <button
+          onClick={() => data && exportCSV(data.custosPorVeiculo, data.custosPorMes)}
+          disabled={!data || data.custosPorVeiculo.length === 0}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors ml-auto"
+        >
+          Exportar CSV
         </button>
       </div>
 

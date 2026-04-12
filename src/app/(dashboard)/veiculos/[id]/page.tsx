@@ -51,6 +51,18 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
   }, 0);
   const valorVeiculo = veiculo.valorVeiculo || 0;
   const percentualValor = valorVeiculo > 0 ? (custoTotalManutencao / valorVeiculo) * 100 : 0;
+  const custoPorKm = kmRodado > 0 ? custoTotalManutencao / kmRodado : 0;
+
+  // KM médio/dia para projeção
+  const viagensComKm = veiculo.viagens.filter((v) => v.kmFinal && v.kmInicial);
+  let kmMedioDia = 0;
+  if (viagensComKm.length >= 2) {
+    const kmTotal = viagensComKm.reduce((acc, v) => acc + ((v.kmFinal || 0) - v.kmInicial), 0);
+    const datasViagens = viagensComKm.map((v) => new Date(v.dataSaida).getTime());
+    const primeiraDia = new Date(Math.min(...datasViagens));
+    const dias = Math.max(1, Math.floor((Date.now() - primeiraDia.getTime()) / (1000 * 60 * 60 * 24)));
+    kmMedioDia = Math.round((kmTotal / dias) * 10) / 10;
+  }
 
   // Find closest alert
   const alertasComKm = veiculo.alertasKm.map((a) => {
@@ -114,6 +126,12 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-sm text-gray-500">KM Rodado</p>
           <p className="text-xl font-bold text-gray-900">{kmRodado.toLocaleString("pt-BR")} km</p>
+          {kmMedioDia > 0 && (
+            <p className="text-xs text-gray-400 mt-1">{kmMedioDia} km/dia média</p>
+          )}
+          {custoPorKm > 0 && (
+            <p className="text-xs text-gray-400">R$ {custoPorKm.toFixed(2)}/km</p>
+          )}
         </div>
         <div
           className={`rounded-lg shadow p-4 ${
@@ -281,19 +299,36 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
           <div className="space-y-3">
             {alertasComKm.map((a) => {
               const urgente = a.kmRestante <= a.alertaAntesDe;
+              const vencido = a.kmRestante <= 0;
+              // Projeção de data
+              let dataEstimada: string | null = null;
+              if (kmMedioDia > 0 && a.kmRestante > 0) {
+                const diasAte = Math.ceil(a.kmRestante / kmMedioDia);
+                const data = new Date();
+                data.setDate(data.getDate() + diasAte);
+                dataEstimada = data.toLocaleDateString("pt-BR");
+              }
               return (
-                <div key={a.id} className={`flex items-center justify-between p-4 rounded-lg border ${urgente ? "border-red-300 bg-red-50" : "border-gray-200"}`}>
+                <div key={a.id} className={`flex items-center justify-between p-4 rounded-lg border ${vencido ? "border-red-400 bg-red-50" : urgente ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}>
                   <div>
                     <p className="font-medium text-gray-900">{TIPOS_ALERTA[a.tipo] || a.tipo}</p>
                     <p className="text-sm text-gray-500">
                       A cada {a.intervaloKm.toLocaleString("pt-BR")} km | Próxima: {a.kmProxima.toLocaleString("pt-BR")} km
                     </p>
+                    {dataEstimada && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        Previsão: {dataEstimada} ({Math.ceil(a.kmRestante / kmMedioDia)} dias)
+                      </p>
+                    )}
                   </div>
                   <div className="text-right">
-                    <p className={`text-sm font-semibold ${urgente ? "text-red-600" : "text-gray-700"}`}>
-                      {Math.max(0, a.kmRestante).toLocaleString("pt-BR")} km restantes
+                    <p className={`text-sm font-semibold ${vencido ? "text-red-600" : urgente ? "text-yellow-600" : "text-gray-700"}`}>
+                      {vencido
+                        ? `${Math.abs(a.kmRestante).toLocaleString("pt-BR")} km além`
+                        : `${a.kmRestante.toLocaleString("pt-BR")} km restantes`}
                     </p>
-                    {urgente && <p className="text-xs text-red-500 font-medium">Urgente</p>}
+                    {vencido && <p className="text-xs text-red-500 font-bold">VENCIDO</p>}
+                    {!vencido && urgente && <p className="text-xs text-yellow-600 font-medium">Atenção</p>}
                   </div>
                 </div>
               );
