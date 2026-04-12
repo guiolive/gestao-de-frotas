@@ -12,11 +12,11 @@ export async function POST(request: NextRequest) {
 
   const { senhaAtual, novaSenha } = await request.json();
   if (!senhaAtual || !novaSenha) {
-    return NextResponse.json({ error: "Senha atual e nova senha sao obrigatorias" }, { status: 400 });
+    return NextResponse.json({ error: "Senha atual e nova senha são obrigatórias" }, { status: 400 });
   }
 
   const usuario = await prisma.usuario.findUnique({ where: { id: userId } });
-  if (!usuario) return NextResponse.json({ error: "Usuario nao encontrado" }, { status: 404 });
+  if (!usuario) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
 
   if (!compararSenha(senhaAtual, usuario.senha)) {
     return NextResponse.json({ error: "Senha atual incorreta" }, { status: 401 });

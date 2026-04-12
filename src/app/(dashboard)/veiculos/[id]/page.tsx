@@ -6,12 +6,12 @@ import { notFound } from "next/navigation";
 export const dynamic = "force-dynamic";
 
 const TIPOS_ALERTA: Record<string, string> = {
-  troca_oleo: "Troca de Oleo",
+  troca_oleo: "Troca de Óleo",
   troca_pneus: "Troca de Pneus",
-  revisao: "Revisao Geral",
+  revisao: "Revisão Geral",
   alinhamento: "Alinhamento e Balanceamento",
   filtro_ar: "Filtro de Ar",
-  filtro_combustivel: "Filtro de Combustivel",
+  filtro_combustivel: "Filtro de Combustível",
   correia_dentada: "Correia Dentada",
   fluido_freio: "Fluido de Freio",
   fluido_arrefecimento: "Fluido de Arrefecimento",
@@ -85,7 +85,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
       {/* 6 Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Custo Total Manutencao</p>
+          <p className="text-sm text-gray-500">Custo Total Manutenção</p>
           <p className="text-xl font-bold text-gray-900">
             R$ {custoTotalManutencao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
           </p>
@@ -95,7 +95,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
           <p className="text-xl font-bold text-gray-900">{diasParado}</p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Proxima Revisao</p>
+          <p className="text-sm text-gray-500">Próxima Revisão</p>
           {proximoAlerta ? (
             <p className="text-lg font-bold text-gray-900">
               {TIPOS_ALERTA[proximoAlerta.tipo] || proximoAlerta.tipo}
@@ -136,13 +136,13 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
           >
             {percentualValor.toFixed(1)}%
           </p>
-          <p className="text-xs text-gray-500 mt-1">{percentualValor.toFixed(1)}% do valor do veiculo</p>
+          <p className="text-xs text-gray-500 mt-1">{percentualValor.toFixed(1)}% do valor do veículo</p>
         </div>
       </div>
 
       {/* Vehicle info card */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 mb-4">Dados do Veiculo</h2>
+        <h2 className="text-lg font-semibold text-gray-800 mb-4">Dados do Veículo</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <span className="text-gray-500">Placa</span>
@@ -198,11 +198,11 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
       {/* Maintenance history table */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="px-6 py-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800">Historico de Manutencoes</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Histórico de Manutenções</h2>
           <Link href="/manutencoes" className="text-sm text-blue-600 hover:text-blue-800">Ver todas</Link>
         </div>
         {veiculo.manutencoes.length === 0 ? (
-          <p className="px-6 py-4 text-gray-500 text-sm">Nenhuma manutencao registrada.</p>
+          <p className="px-6 py-4 text-gray-500 text-sm">Nenhuma manutenção registrada.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -210,7 +210,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Data</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descricao</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Custo</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
                 </tr>
@@ -243,7 +243,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
       {/* Recent trips */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="px-6 py-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800">Ultimas Viagens</h2>
+          <h2 className="text-lg font-semibold text-gray-800">Últimas Viagens</h2>
           <Link href="/viagens" className="text-sm text-blue-600 hover:text-blue-800">Ver todas</Link>
         </div>
         {veiculo.viagens.length === 0 ? (
@@ -286,7 +286,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: Promise
                   <div>
                     <p className="font-medium text-gray-900">{TIPOS_ALERTA[a.tipo] || a.tipo}</p>
                     <p className="text-sm text-gray-500">
-                      A cada {a.intervaloKm.toLocaleString("pt-BR")} km | Proxima: {a.kmProxima.toLocaleString("pt-BR")} km
+                      A cada {a.intervaloKm.toLocaleString("pt-BR")} km | Próxima: {a.kmProxima.toLocaleString("pt-BR")} km
                     </p>
                   </div>
                   <div className="text-right">

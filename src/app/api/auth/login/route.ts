@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         dados: { email: data.email, motivo: usuario ? "inativo" : "nao_encontrado" },
       });
       return NextResponse.json(
-        { error: "Credenciais invalidas" },
+        { error: "Credenciais inválidas" },
         { status: 401 }
       );
     }
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
         dados: { email: data.email, motivo: "senha_incorreta" },
       });
       return NextResponse.json(
-        { error: "Credenciais invalidas" },
+        { error: "Credenciais inválidas" },
         { status: 401 }
       );
     }

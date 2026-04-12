@@ -84,11 +84,11 @@ export default async function DashboardPage() {
       {/* Cards de resumo - Linha 1 */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <div className="bg-white rounded-lg shadow p-5">
-          <p className="text-sm text-gray-500">Total de Veiculos</p>
+          <p className="text-sm text-gray-500">Total de Veículos</p>
           <p className="text-3xl font-bold text-gray-900">{totalVeiculos}</p>
         </div>
         <div className="bg-green-50 border border-green-200 rounded-lg shadow p-5">
-          <p className="text-sm text-green-600">Disponiveis</p>
+          <p className="text-sm text-green-600">Disponíveis</p>
           <p className="text-3xl font-bold text-green-700">{veiculosDisponiveis}</p>
         </div>
         <div className="bg-blue-50 border border-blue-200 rounded-lg shadow p-5">
@@ -96,7 +96,7 @@ export default async function DashboardPage() {
           <p className="text-3xl font-bold text-blue-700">{veiculosEmUso}</p>
         </div>
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg shadow p-5">
-          <p className="text-sm text-yellow-600">Em Manutencao</p>
+          <p className="text-sm text-yellow-600">Em Manutenção</p>
           <p className="text-3xl font-bold text-yellow-700">{veiculosManutencao}</p>
         </div>
       </div>
@@ -126,12 +126,12 @@ export default async function DashboardPage() {
       {/* Comparacao de custos por veiculo */}
       <div className="bg-white rounded-lg shadow mb-6">
         <div className="px-6 py-4 border-b flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-gray-800">Custo de Manutencao por Veiculo</h2>
-          <Link href="/veiculos" className="text-sm text-blue-600 hover:text-blue-800">Ver veiculos</Link>
+          <h2 className="text-lg font-semibold text-gray-800">Custo de Manutenção por Veículo</h2>
+          <Link href="/veiculos" className="text-sm text-blue-600 hover:text-blue-800">Ver veículos</Link>
         </div>
         <div className="p-6">
           {custosPorVeiculo.length === 0 ? (
-            <p className="text-gray-500 text-sm">Nenhum veiculo cadastrado.</p>
+            <p className="text-gray-500 text-sm">Nenhum veículo cadastrado.</p>
           ) : (
             <div className="space-y-4">
               {custosPorVeiculo.map((v) => {
@@ -179,12 +179,12 @@ export default async function DashboardPage() {
         {/* Proximos Agendamentos */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Proximos Agendamentos</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Próximos Agendamentos</h2>
             <Link href="/agendamentos" className="text-sm text-blue-600 hover:text-blue-800">Ver todos</Link>
           </div>
           <div className="divide-y">
             {proximosAgendamentos.length === 0 ? (
-              <p className="px-6 py-4 text-gray-500 text-sm">Nenhum agendamento proximo.</p>
+              <p className="px-6 py-4 text-gray-500 text-sm">Nenhum agendamento próximo.</p>
             ) : (
               proximosAgendamentos.map((a) => (
                 <div key={a.id} className="px-6 py-3 flex justify-between items-center">
@@ -207,12 +207,12 @@ export default async function DashboardPage() {
         {/* Manutencoes Ativas */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b flex justify-between items-center">
-            <h2 className="text-lg font-semibold text-gray-800">Manutencoes Ativas</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Manutenções Ativas</h2>
             <Link href="/manutencoes" className="text-sm text-blue-600 hover:text-blue-800">Ver todas</Link>
           </div>
           <div className="divide-y">
             {manutencoesAndamento.length === 0 ? (
-              <p className="px-6 py-4 text-gray-500 text-sm">Nenhuma manutencao ativa.</p>
+              <p className="px-6 py-4 text-gray-500 text-sm">Nenhuma manutenção ativa.</p>
             ) : (
               manutencoesAndamento.map((m) => {
                 const custo = m.itens.reduce((a, i) => a + i.valor, 0);

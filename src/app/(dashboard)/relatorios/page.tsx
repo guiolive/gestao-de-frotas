@@ -93,20 +93,20 @@ export default function RelatoriosPage() {
   }
 
   if (loading || !data) {
-    return <div className="text-gray-500">Carregando relatorios...</div>;
+    return <div className="text-gray-500">Carregando relatórios...</div>;
   }
 
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Relatorios de Custos
+        Relatórios de Custos
       </h1>
 
       {/* Filtros */}
       <div className="bg-white rounded-lg shadow p-4 mb-6 flex flex-wrap items-end gap-4">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Data Inicio
+            Data Início
           </label>
           <input
             type="date"
@@ -149,13 +149,13 @@ export default function RelatoriosPage() {
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Media por Veiculo</p>
+          <p className="text-sm text-gray-500">Média por Veículo</p>
           <p className="text-2xl font-bold text-gray-900">
             {formatCurrency(data.mediaCustoPorVeiculo)}
           </p>
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Veiculo Mais Caro</p>
+          <p className="text-sm text-gray-500">Veículo Mais Caro</p>
           <p className="text-2xl font-bold text-gray-900">
             {data.veiculoMaisCaro
               ? `${data.veiculoMaisCaro.placa} - ${data.veiculoMaisCaro.modelo}`
@@ -168,7 +168,7 @@ export default function RelatoriosPage() {
           )}
         </div>
         <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-sm text-gray-500">Total Manutencoes</p>
+          <p className="text-sm text-gray-500">Total Manutenções</p>
           <p className="text-2xl font-bold text-gray-900">
             {data.totalManutencoes}
           </p>
@@ -180,7 +180,7 @@ export default function RelatoriosPage() {
         {/* Bar chart - custo por veiculo */}
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Custo por Veiculo
+            Custo por Veículo
           </h2>
           {data.custosPorVeiculo.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -224,7 +224,7 @@ export default function RelatoriosPage() {
         {/* Line chart - evolucao mensal */}
         <div className="bg-white rounded-lg shadow p-4">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Evolucao Mensal
+            Evolução Mensal
           </h2>
           {data.custosPorMes.length > 0 ? (
             <ResponsiveContainer width="100%" height={300}>
@@ -269,7 +269,7 @@ export default function RelatoriosPage() {
       {/* Tabela detalhada */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <h2 className="text-lg font-semibold text-gray-800 p-4 border-b">
-          Detalhamento por Veiculo
+          Detalhamento por Veículo
         </h2>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -287,7 +287,7 @@ export default function RelatoriosPage() {
                 Custo Total
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Qtd Manutencoes
+                Qtd Manutenções
               </th>
             </tr>
           </thead>
@@ -298,7 +298,7 @@ export default function RelatoriosPage() {
                   colSpan={5}
                   className="px-6 py-8 text-center text-gray-500"
                 >
-                  Nenhum dado disponivel.
+                  Nenhum dado disponível.
                 </td>
               </tr>
             )}

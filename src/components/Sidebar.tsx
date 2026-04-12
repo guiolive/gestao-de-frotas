@@ -7,13 +7,13 @@ import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/veiculos", label: "Veiculos", icon: Car },
+  { href: "/veiculos", label: "Veículos", icon: Car },
   { href: "/motoristas", label: "Motoristas", icon: Users },
   { href: "/unidades", label: "Unidades", icon: Building2 },
   { href: "/viagens", label: "Viagens", icon: Map },
   { href: "/agendamentos", label: "Agendamentos", icon: Calendar },
-  { href: "/manutencoes", label: "Manutencoes", icon: Wrench },
-  { href: "/relatorios", label: "Relatorios", icon: BarChart3 },
+  { href: "/manutencoes", label: "Manutenções", icon: Wrench },
+  { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
 ];
 
 interface User {
@@ -52,7 +52,7 @@ export default function Sidebar() {
             <Car className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-white font-bold text-lg leading-tight">Gestao de</h1>
+            <h1 className="text-white font-bold text-lg leading-tight">Gestão de</h1>
             <h1 className="text-white font-bold text-lg leading-tight">Frotas</h1>
           </div>
         </div>

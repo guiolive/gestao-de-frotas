@@ -8,8 +8,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Gestao de Frotas",
-  description: "Sistema de gestao de frotas de veiculos",
+  title: "Gestão de Frotas",
+  description: "Sistema de gestão de frotas de veículos",
 };
 
 export default function RootLayout({

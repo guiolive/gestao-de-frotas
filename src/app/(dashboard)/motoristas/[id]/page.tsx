@@ -110,7 +110,7 @@ export default async function VisualizarMotoristaPage({ params }: { params: Prom
         {/* Recent trips */}
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">Ultimas Viagens</h2>
+            <h2 className="text-lg font-semibold text-gray-800">Últimas Viagens</h2>
             <Link href="/viagens" className="text-sm text-blue-600 hover:text-blue-800">Ver todas</Link>
           </div>
           {todasViagens.length === 0 ? (

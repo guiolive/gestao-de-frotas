@@ -49,7 +49,7 @@ export default async function MotoristasPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Telefone</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Viagens</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acoes</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">

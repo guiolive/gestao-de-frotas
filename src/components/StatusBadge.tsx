@@ -19,15 +19,15 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
-  disponivel: "Disponivel",
+  disponivel: "Disponível",
   em_uso: "Em Uso",
-  manutencao: "Em Manutencao",
+  manutencao: "Em Manutenção",
   inativo: "Inativo",
   ativo: "Ativo",
   suspenso: "Suspenso",
   agendada: "Agendada",
   em_andamento: "Em Andamento",
-  concluida: "Concluida",
+  concluida: "Concluída",
   cancelada: "Cancelada",
   pendente: "Pendente",
   aprovado: "Aprovado",

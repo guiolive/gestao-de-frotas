@@ -60,7 +60,7 @@ export default function NovaUnidadePage() {
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase"
           />
           <p className="text-xs text-gray-500 mt-1">
-            Sera convertida automaticamente para maiusculas
+            Será convertida automaticamente para maiúsculas
           </p>
         </div>
 
@@ -71,7 +71,7 @@ export default function NovaUnidadePage() {
           <input
             name="nome"
             required
-            placeholder="Ex: Coordenacao Geral de Tecnologia da Informacao"
+            placeholder="Ex: Coordenação Geral de Tecnologia da Informação"
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
         </div>

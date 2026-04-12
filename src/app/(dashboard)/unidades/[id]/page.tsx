@@ -21,7 +21,7 @@ export default async function UnidadeDetalhePage({
   if (!unidade) {
     return (
       <div className="text-center py-12 text-gray-500">
-        Unidade nao encontrada.
+        Unidade não encontrada.
       </div>
     );
   }

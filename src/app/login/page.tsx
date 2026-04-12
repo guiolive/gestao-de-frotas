@@ -39,7 +39,7 @@ export default function LoginPage() {
         router.push("/");
       }
     } catch {
-      setErro("Erro de conexao");
+      setErro("Erro de conexão");
     } finally {
       setLoading(false);
     }
@@ -56,9 +56,9 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: emailRecuperacao }),
       });
-      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporaria sera enviada.");
+      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporária será enviada.");
     } catch {
-      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporaria sera enviada.");
+      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporária será enviada.");
     } finally {
       setLoading(false);
     }
@@ -71,8 +71,8 @@ export default function LoginPage() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-2xl mb-4">
             <Car className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">Gestao de Frotas</h1>
-          <p className="text-slate-400 mt-1">Sistema de Gerenciamento de Veiculos</p>
+          <h1 className="text-2xl font-bold text-white">Gestão de Frotas</h1>
+          <p className="text-slate-400 mt-1">Sistema de Gerenciamento de Veículos</p>
         </div>
 
         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-8 shadow-2xl border border-white/10">

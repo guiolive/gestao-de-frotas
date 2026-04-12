@@ -33,25 +33,25 @@ async function main() {
 
   console.log("Criando unidades...");
   const unidadesData = [
-    { sigla: "IV", nome: "Instituto de Veterinaria" },
-    { sigla: "FIRM", nome: "Faculdade de Informacao e Comunicacao" },
-    { sigla: "ICB", nome: "Instituto de Ciencias Biologicas" },
+    { sigla: "IV", nome: "Instituto de Veterinária" },
+    { sigla: "FIRM", nome: "Faculdade de Informação e Comunicação" },
+    { sigla: "ICB", nome: "Instituto de Ciências Biológicas" },
     { sigla: "EA", nome: "Escola de Agronomia" },
     { sigla: "SEINFRA", nome: "Secretaria de Infraestrutura" },
-    { sigla: "EVZ", nome: "Escola de Veterinaria e Zootecnia" },
-    { sigla: "PRPI", nome: "Pro-Reitoria de Pesquisa e Inovacao" },
+    { sigla: "EVZ", nome: "Escola de Veterinária e Zootecnia" },
+    { sigla: "PRPI", nome: "Pró-Reitoria de Pesquisa e Inovação" },
     { sigla: "FD", nome: "Faculdade de Direito" },
-    { sigla: "SRI", nome: "Secretaria de Relacoes Internacionais" },
+    { sigla: "SRI", nome: "Secretaria de Relações Internacionais" },
     { sigla: "REITORIA", nome: "Reitoria" },
-    { sigla: "PRPG", nome: "Pro-Reitoria de Pos-Graduacao" },
-    { sigla: "DLOG", nome: "Diretoria de Logistica" },
+    { sigla: "PRPG", nome: "Pró-Reitoria de Pós-Graduação" },
+    { sigla: "DLOG", nome: "Diretoria de Logística" },
     { sigla: "DTEL", nome: "Diretoria de Tecnologia Educacional" },
     { sigla: "IESA", nome: "Instituto de Estudos Socioambientais" },
-    { sigla: "FE", nome: "Faculdade de Educacao" },
+    { sigla: "FE", nome: "Faculdade de Educação" },
     { sigla: "FL", nome: "Faculdade de Letras" },
-    { sigla: "IME", nome: "Instituto de Matematica e Estatistica" },
-    { sigla: "IF", nome: "Instituto de Fisica" },
-    { sigla: "IQ", nome: "Instituto de Quimica" },
+    { sigla: "IME", nome: "Instituto de Matemática e Estatística" },
+    { sigla: "IF", nome: "Instituto de Física" },
+    { sigla: "IQ", nome: "Instituto de Química" },
   ];
   const unidades = await Promise.all(
     unidadesData.map((u) => prisma.unidade.create({ data: u }))
