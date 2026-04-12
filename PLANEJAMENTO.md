@@ -69,25 +69,29 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
-## ⏸️ Fase 2 — Hardening e Observabilidade
+## ✅ Fase 2 — Hardening e Observabilidade — CONCLUÍDA
 
-- [ ] **Headers de segurança** (CSP, HSTS, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, Permissions-Policy)
-  Bloco `headers()` no `next.config.ts`.
+- [x] **Headers de segurança** (commit `a41a2e5`)
+  Bloco `headers()` em `next.config.ts`: HSTS (2 anos + preload), X-Content-Type-Options, X-Frame-Options DENY, Referrer-Policy, Permissions-Policy (camera/mic/geo/payment/usb/FLoC), X-DNS-Prefetch-Control, poweredByHeader=false. CSP só em prod (`default-src 'self'` + `script-src 'self'` + `style-src 'self' 'unsafe-inline'` + `frame-ancestors 'none'` + `upgrade-insecure-requests`), ausente em dev pra não quebrar HMR do Turbopack.
   *OWASP A05:2021*
 
-- [ ] **Substituir `bcryptjs` por `@node-rs/argon2`**
-  Argon2 já está nas deps. Migrar com compatibilidade retroativa (rehash no próximo login).
+- [x] **Substituir `bcryptjs` por `@node-rs/argon2`** (commit `40c2034`)
+  Migração gradual com backcompat: `compararSenha()` detecta formato pelo prefixo (`$2a$`/`$2b$`/`$2y$` → bcrypt; `$argon2id$` → argon2) e retorna `{ ok, needsRehash }`. No login bem-sucedido com hash legado, rehashea com argon2 e persiste junto com `ultimoLogin` (1 query, ~200-400ms só no primeiro login de cada usuário). bcryptjs fica instalado até todos os usuários migrarem. Seed já gera admin com argon2.
 
-- [ ] **Fluxo "Esqueci minha senha" funcional**
-  Handler para `/api/auth/esqueci-senha` (atualmente só na whitelist). Token de reset + e-mail via Nodemailer.
+- [x] **Fluxo "Esqueci minha senha" funcional** (commit `8491799`)
+  Migration `20260412031935_add_password_reset_token` (`PasswordResetToken` com `tokenHash` UNIQUE, FK ON DELETE CASCADE, índices em usuarioId e expiraEm).
+  - `POST /api/auth/esqueci-senha`: rate limit 3/5min, token raw 32 bytes random (armazena só SHA-256), expira em 60 min, anti-enumeração (sempre 200 mesmo pra email inexistente), email fire-and-forget, audit log sempre.
+  - `POST /api/auth/resetar-senha`: rate limit 10/min, valida força, transação atômica (update senha + marca token como usado + invalida todos os outros tokens pendentes do mesmo usuário).
+  - Página `/resetar-senha` (Suspense + useSearchParams) + template HTML do email em `email.ts` + whitelist do proxy atualizada.
+  - SMTP vazio em dev → placeholder; configurar envs reais na Fase 5.
 
-- [ ] **Monitoring e error tracking (Sentry)**
-  Logs estruturados com pino.
-  *OWASP A09:2021*
+- [x] **Logger pino estruturado** (commit `d5279e7`)
+  `src/lib/logger.ts` com redaction automática de segredos (senha, token, cookie, authorization etc — viram `[REDACTED]` mesmo logando objeto inteiro), level via `LOG_LEVEL`, `pino-pretty` em dev, JSON puro em prod. Migrado `console.error`/`console.log` em `audit.ts`, `email.ts`, `prisma.ts` e rotas de auth.
+  *OWASP A09:2021 — parcial. Sentry/error tracking adiado pra Fase 5 (card novo)*
 
 ---
 
-## ⏸️ Fase 3 — Funcionalidades: Viagens e PCDP
+## ⏸️ Fase 3 — Funcionalidades: Viagens e PCDP — ATIVO
 
 - [ ] **Busca e filtros avançados em Viagens**
   Componente `SearchFilters.tsx` client-side com debounce. Filtros: veículo, motorista, unidade, status, período, UF.
@@ -129,6 +133,10 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 - [ ] **Estratégia de backup do banco**
   Backup diário (Supabase faz). Procedimento de restore documentado e testado em staging.
+
+- [ ] **Sentry / error tracking em produção** *(adiado da Fase 2)*
+  `@sentry/nextjs` + DSN em env var Vercel. Wizard automático. Source maps no build. Filtrar PII via `beforeSend` (pino já faz redaction). Complementa o logging estruturado do pino.
+  *OWASP A09:2021*
 
 ---
 
