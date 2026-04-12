@@ -91,23 +91,23 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
-## ⏸️ Fase 3 — Funcionalidades: Viagens e PCDP — ATIVO
+## ✅ Fase 3 — Funcionalidades: Viagens e PCDP — CONCLUÍDA
 
-- [ ] **Busca e filtros avançados em Viagens**
-  Componente `SearchFilters.tsx` client-side com debounce. Filtros: veículo, motorista, unidade, status, período, UF.
+- [x] **Busca e filtros avançados em Viagens** (commit `b3a4291`)
+  Busca full-text (destino, origem, solicitante, processo SEI) + filtros por veículo, motorista, unidade, UF destino, período de datas. Server-side via Prisma `contains` + `gte/lte`. UI com contagem de resultados e botão "Limpar filtros".
 
-- [ ] **Workflow completo de PCDP**
-  Refinar PCDP/PCDP2 (número, data, valor, solicitante). PCDP obrigatório se houver diária. Export por PCDP.
+- [x] **Workflow completo de PCDP** (commit `b3a4291`)
+  Auto-cálculo de `totalDiárias` (diária × qtdDiárias) no client e no server. PCDP Motorista 1 obrigatório quando há diárias (validação dupla: client com `alert()` + server com 400). Labels de obrigatoriedade na UI. Seção PCDP auto-expandida quando dados existem.
 
-- [ ] **Notificações por e-mail** (alertas KM, manutenção)
-  Conectar `/api/alertas/verificar` com cron. Disparar quando veículo se aproximar do intervalo de troca.
+- [x] **Notificações por e-mail** (alertas KM, manutenção) (commit `b3a4291`)
+  Endpoint `/api/alertas/verificar` agora verifica alertas de KM **e** manutenções atrasadas/próximas do prazo em um só POST. Nova função `enviarEmailManutencao()` em `src/lib/email.ts`. Requer `EMAIL_GESTOR_FROTA` no `.env`. Cron externo (Vercel Cron ou GitHub Actions) a ser configurado na Fase 5.
 
-- [ ] **Validação de disponibilidade de veículo em viagens**
-  Verificar conflito com outras viagens/manutenções no período. Sync automático de status.
+- [x] **Validação de disponibilidade de veículo em viagens** (commit `b3a4291`)
+  POST `/api/viagens` agora verifica conflitos com viagens ativas/agendadas e manutenções (aguardando/em_andamento) no período solicitado. Retorna HTTP 409 com mensagem descritiva (nome do motorista, destino). Sync automático de status do veículo já existia no PUT (Fase 0).
 
 ---
 
-## ⏸️ Fase 4 — Dossiê do Veículo e Relatórios
+## ⏸️ Fase 4 — Dossiê do Veículo e Relatórios — ATIVO
 
 - [ ] **Dashboard principal com KPIs**
   Cards: total de veículos por status, viagens do mês, custo mensal, manutenções em andamento, próximas revisões. Gráficos Recharts.
