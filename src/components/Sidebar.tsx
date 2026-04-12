@@ -8,10 +8,10 @@ import { useState, useEffect } from "react";
 const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/veiculos", label: "Veículos", icon: Car },
-  { href: "/motoristas", label: "Motoristas", icon: Users },
+  // { href: "/motoristas", label: "Motoristas", icon: Users },  // Oculto temporariamente — foco em manutenções
   { href: "/unidades", label: "Unidades", icon: Building2 },
   { href: "/viagens", label: "Viagens", icon: Map },
-  { href: "/agendamentos", label: "Agendamentos", icon: Calendar },
+  // { href: "/agendamentos", label: "Agendamentos", icon: Calendar },  // Oculto temporariamente — foco em manutenções
   { href: "/manutencoes", label: "Manutenções", icon: Wrench },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
 ];

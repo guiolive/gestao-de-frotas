@@ -153,6 +153,17 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
+## ⏸️ Funcionalidades Ocultas (voltar depois)
+
+As funcionalidades abaixo foram **ocultadas da sidebar** (comentadas no `src/components/Sidebar.tsx`) para manter o foco nas manutenções nesta fase. As rotas, APIs e páginas continuam existindo — só não aparecem na navegação.
+
+- **Motoristas** (`/motoristas`) — CRUD completo funcional. Reativar quando o fluxo de manutenções estiver validado em produção.
+- **Agendamentos** (`/agendamentos`) — CRUD completo funcional. Reativar junto com motoristas.
+
+> Para reativar: descomentar as linhas no array `NAV_ITEMS` em `src/components/Sidebar.tsx`.
+
+---
+
 ## 📝 Convenções
 
 - **Status das fases no Trello:**
