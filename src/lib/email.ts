@@ -87,6 +87,67 @@ export async function enviarEmailAlerta(dados: EmailAlerta) {
   }
 }
 
+interface EmailManutencao {
+  para: string;
+  veiculo: { placa: string; modelo: string; marca: string };
+  tipo: string;
+  descricao: string;
+  previsaoSaida: string | null;
+  status: string;
+}
+
+export async function enviarEmailManutencao(dados: EmailManutencao) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1e293b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">Alerta de Manutenção</h2>
+        <p style="margin: 8px 0 0; opacity: 0.8;">Sistema de Gestão de Frotas</p>
+      </div>
+      <div style="background: white; padding: 24px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+        <p>A manutenção abaixo requer atenção:</p>
+        <table style="width: 100%; border-collapse: collapse; margin: 16px 0;">
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold; width: 40%;">Veículo:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${dados.veiculo.placa} - ${dados.veiculo.marca} ${dados.veiculo.modelo}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Tipo:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${dados.tipo}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Descrição:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${dados.descricao}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0; font-weight: bold;">Status:</td>
+            <td style="padding: 8px; border-bottom: 1px solid #e2e8f0;">${dados.status}</td>
+          </tr>
+          <tr>
+            <td style="padding: 8px; font-weight: bold;">Previsão de Saída:</td>
+            <td style="padding: 8px;">${dados.previsaoSaida || "Não definida"}</td>
+          </tr>
+        </table>
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 16px;">
+          <p style="margin: 0; color: #92400e;"><strong>Ação necessária:</strong> Verifique o andamento desta manutenção.</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: dados.para,
+      subject: `Manutenção ${dados.status} - ${dados.veiculo.placa}`,
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    logger.error({ err: error, tipo: "manutencao", para: dados.para }, "falha ao enviar email de manutenção");
+    return { success: false, error };
+  }
+}
+
 interface EmailResetSenha {
   para: string;
   nome: string;

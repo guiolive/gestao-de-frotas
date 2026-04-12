@@ -36,6 +36,11 @@ export default function NovaViagemPage() {
   const [showPcdp1, setShowPcdp1] = useState(false);
   const [showPcdp2, setShowPcdp2] = useState(false);
 
+  // Auto-calc totalDiarias
+  const [diaria, setDiaria] = useState<number | null>(null);
+  const [qtdDiarias, setQtdDiarias] = useState<number | null>(null);
+  const totalDiarias = diaria && qtdDiarias ? diaria * qtdDiarias : null;
+
   useEffect(() => {
     fetch("/api/veiculos").then((r) => r.json()).then(setVeiculos);
     fetch("/api/motoristas").then((r) => r.json()).then(setMotoristas);
@@ -52,6 +57,19 @@ export default function NovaViagemPage() {
       if (value !== "") {
         data[key] = value;
       }
+    }
+
+    // Auto-calc
+    if (totalDiarias) {
+      data.totalDiarias = totalDiarias;
+    }
+
+    // PCDP validation: if diárias exist, PCDP número is required
+    if (diaria && qtdDiarias && !data.pcdpNumero) {
+      alert("PCDP Motorista 1 é obrigatório quando há diárias.");
+      setShowPcdp1(true);
+      setLoading(false);
+      return;
     }
 
     const res = await fetch("/api/viagens", {
@@ -87,7 +105,7 @@ export default function NovaViagemPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ve\u00edculo *
+                Veículo *
               </label>
               <select name="veiculoId" required className={inputClass}>
                 <option value="">Selecione</option>
@@ -140,7 +158,7 @@ export default function NovaViagemPage() {
               <input
                 name="origem"
                 required
-                defaultValue="Goiania, GO"
+                defaultValue="Goiânia, GO"
                 className={inputClass}
               />
             </div>
@@ -149,7 +167,7 @@ export default function NovaViagemPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Data Sa\u00edda *
+                Data Saída *
               </label>
               <input
                 name="dataSaida"
@@ -216,13 +234,14 @@ export default function NovaViagemPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Di\u00e1ria (R$)
+                Diária (R$)
               </label>
               <input
                 name="diaria"
                 type="number"
                 step="0.01"
                 className={inputClass}
+                onChange={(e) => setDiaria(e.target.value ? Number(e.target.value) : null)}
               />
             </div>
             <div>
@@ -238,16 +257,27 @@ export default function NovaViagemPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Qtd Di\u00e1rias
+                Qtd Diárias
               </label>
               <input
                 name="qtdDiarias"
                 type="number"
                 step="0.5"
                 className={inputClass}
+                onChange={(e) => setQtdDiarias(e.target.value ? Number(e.target.value) : null)}
               />
             </div>
           </div>
+
+          {/* Auto-calc total diárias */}
+          {totalDiarias !== null && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+              <span className="text-sm text-blue-700">Total Diárias (calculado automaticamente)</span>
+              <span className="text-lg font-semibold text-blue-900">
+                R$ {totalDiarias.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* PCDP Motorista 1 */}
@@ -259,6 +289,9 @@ export default function NovaViagemPage() {
           >
             <h2 className="text-lg font-semibold text-gray-800">
               PCDP Motorista 1
+              {diaria && qtdDiarias && (
+                <span className="ml-2 text-xs text-red-600 font-normal">(obrigatório com diárias)</span>
+              )}
             </h2>
             <span className="text-gray-500">{showPcdp1 ? "\u25B2" : "\u25BC"}</span>
           </button>
@@ -266,7 +299,7 @@ export default function NovaViagemPage() {
             <div className="p-6 pt-0 grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  N\u00famero
+                  Número {diaria && qtdDiarias && <span className="text-red-500">*</span>}
                 </label>
                 <input name="pcdpNumero" className={inputClass} />
               </div>
@@ -313,7 +346,7 @@ export default function NovaViagemPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  N\u00famero
+                  Número
                 </label>
                 <input name="pcdp2Numero" className={inputClass} />
               </div>
@@ -338,10 +371,10 @@ export default function NovaViagemPage() {
           )}
         </div>
 
-        {/* Observacoes */}
+        {/* Observações */}
         <div className="bg-white rounded-lg shadow p-6">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Observa\u00e7\u00f5es
+            Observações
           </label>
           <textarea name="observacoes" rows={3} className={inputClass} />
         </div>
