@@ -85,3 +85,57 @@ export async function enviarEmailAlerta(dados: EmailAlerta) {
     return { success: false, error };
   }
 }
+
+interface EmailResetSenha {
+  para: string;
+  nome: string;
+  resetUrl: string;
+  expiraEmMinutos: number;
+}
+
+export async function enviarEmailResetSenha(dados: EmailResetSenha) {
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+      <div style="background: #1e293b; color: white; padding: 20px; border-radius: 8px 8px 0 0;">
+        <h2 style="margin: 0;">Redefinição de Senha</h2>
+        <p style="margin: 8px 0 0; opacity: 0.8;">Sistema de Gestão de Frotas</p>
+      </div>
+      <div style="background: white; padding: 24px; border: 1px solid #e2e8f0; border-radius: 0 0 8px 8px;">
+        <p>Olá ${dados.nome},</p>
+        <p>Recebemos uma solicitação para redefinir a senha da sua conta. Se foi você, clique no botão abaixo:</p>
+
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="${dados.resetUrl}"
+             style="display: inline-block; background: #2563eb; color: white; padding: 12px 28px; border-radius: 6px; text-decoration: none; font-weight: 600;">
+            Redefinir minha senha
+          </a>
+        </div>
+
+        <p style="font-size: 13px; color: #475569;">
+          Ou copie e cole este link no navegador:<br>
+          <code style="background: #f1f5f9; padding: 6px 10px; display: inline-block; border-radius: 4px; word-break: break-all; font-size: 12px;">${dados.resetUrl}</code>
+        </p>
+
+        <div style="background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px; margin-top: 20px;">
+          <p style="margin: 0; color: #92400e; font-size: 13px;">
+            <strong>Importante:</strong> este link expira em ${dados.expiraEmMinutos} minutos e só pode ser usado uma vez.
+            Se você não solicitou a redefinição, ignore este e-mail — sua senha atual continua válida.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  try {
+    await transporter.sendMail({
+      from: process.env.SMTP_USER,
+      to: dados.para,
+      subject: "Redefinição de senha — Gestão de Frotas",
+      html,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("Erro ao enviar email de reset:", error);
+    return { success: false, error };
+  }
+}

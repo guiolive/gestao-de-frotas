@@ -56,9 +56,9 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: emailRecuperacao }),
       });
-      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporária será enviada.");
+      setMensagemRecuperacao("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha. O link expira em 1 hora.");
     } catch {
-      setMensagemRecuperacao("Se o email estiver cadastrado, uma nova senha temporária será enviada.");
+      setMensagemRecuperacao("Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha. O link expira em 1 hora.");
     } finally {
       setLoading(false);
     }
@@ -152,7 +152,7 @@ export default function LoginPage() {
 
               <button type="submit" disabled={loading}
                 className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
-                {loading ? "Enviando..." : "Enviar nova senha"}
+                {loading ? "Enviando..." : "Enviar link de redefinição"}
               </button>
             </form>
           )}

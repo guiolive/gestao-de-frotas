@@ -140,3 +140,12 @@ export const trocarSenhaSchema = z.object({
   senhaAtual: z.string().min(1).max(200),
   novaSenha: z.string().min(8, "Nova senha deve ter no mínimo 8 caracteres").max(200),
 });
+
+export const esqueciSenhaSchema = z.object({
+  email: z.string().trim().toLowerCase().email("E-mail inválido").max(200),
+});
+
+export const resetarSenhaSchema = z.object({
+  token: z.string().min(32, "Token inválido").max(200),
+  novaSenha: z.string().min(8, "Senha deve ter no mínimo 8 caracteres").max(200),
+});

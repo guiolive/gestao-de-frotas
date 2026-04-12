@@ -21,7 +21,25 @@ model Usuario {
   atualizadoEm   DateTime  @updatedAt
   ultimoLogin    DateTime?
 
-  auditLogs AuditLog[]
+  auditLogs           AuditLog[]
+  passwordResetTokens PasswordResetToken[]
+}
+
+/// Tokens de reset de senha. Armazenamos o hash SHA-256 do token — nunca o
+/// token em texto, assim mesmo quem tiver acesso ao DB não pode usá-lo.
+/// Expiram em 1h e são invalidados ao serem usados (usadoEm != null).
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  usuarioId String
+  tokenHash String    @unique
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime  @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@index([expiraEm])
 }
 
 /// Trilha de auditoria de ações sensíveis (mutations).
