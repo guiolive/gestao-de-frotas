@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { compararSenha, gerarToken } from "@/lib/auth";
+import { compararSenha, gerarToken, hashSenha } from "@/lib/auth";
 import { validateBody, loginSchema } from "@/lib/validation";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!compararSenha(data.senha, usuario.senha)) {
+    const check = await compararSenha(data.senha, usuario.senha);
+    if (!check.ok) {
       await logAudit({
         request,
         usuarioId: usuario.id,
@@ -67,9 +68,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Migração gradual bcrypt → argon2: se o hash armazenado é legacy bcrypt,
+    // rehashamos com argon2 agora que sabemos a senha correta. Await garante
+    // consistência (próximo login já usa argon2). Custa ~300 ms extras só no
+    // primeiro login de cada usuário — aceitável.
+    const novaSenhaHash = check.needsRehash ? await hashSenha(data.senha) : undefined;
+
     await prisma.usuario.update({
       where: { id: usuario.id },
-      data: { ultimoLogin: new Date() },
+      data: {
+        ultimoLogin: new Date(),
+        ...(novaSenhaHash ? { senha: novaSenhaHash } : {}),
+      },
     });
 
     await logAudit({

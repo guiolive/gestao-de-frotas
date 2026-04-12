@@ -1,6 +1,6 @@
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
-import { hashSync } from "bcryptjs";
+import { hashSync as argonHashSync } from "@node-rs/argon2";
 
 const adapter = new PrismaLibSql({ url: `file:${process.cwd()}/dev.db` });
 const prisma = new PrismaClient({ adapter });
@@ -24,7 +24,7 @@ async function main() {
     data: {
       nome: "Administrador",
       email: "admin@dept.com",
-      senha: hashSync("Admin@123", 10),
+      senha: argonHashSync("Admin@123"),
       tipo: "ADMINISTRADOR",
       primeiroAcesso: false,
       matricula: "ADM001",

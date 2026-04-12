@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
   const usuario = await prisma.usuario.findUnique({ where: { id: userId } });
   if (!usuario) return NextResponse.json({ error: "Usuário não encontrado" }, { status: 404 });
 
-  if (!compararSenha(senhaAtual, usuario.senha)) {
+  const check = await compararSenha(senhaAtual, usuario.senha);
+  if (!check.ok) {
     return NextResponse.json({ error: "Senha atual incorreta" }, { status: 401 });
   }
 
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Senha fraca", erros }, { status: 400 });
   }
 
-  const senhaHash = hashSenha(novaSenha);
+  const senhaHash = await hashSenha(novaSenha);
   await prisma.usuario.update({
     where: { id: userId },
     data: { senha: senhaHash, primeiroAcesso: false },
