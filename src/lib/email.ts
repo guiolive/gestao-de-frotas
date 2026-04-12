@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import { logger } from "./logger";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -81,7 +82,7 @@ export async function enviarEmailAlerta(dados: EmailAlerta) {
     });
     return { success: true };
   } catch (error) {
-    console.error("Erro ao enviar email:", error);
+    logger.error({ err: error, tipo: "alerta", para: dados.para }, "falha ao enviar email");
     return { success: false, error };
   }
 }
@@ -135,7 +136,7 @@ export async function enviarEmailResetSenha(dados: EmailResetSenha) {
     });
     return { success: true };
   } catch (error) {
-    console.error("Erro ao enviar email de reset:", error);
+    logger.error({ err: error, tipo: "reset", para: dados.para }, "falha ao enviar email de reset");
     return { success: false, error };
   }
 }

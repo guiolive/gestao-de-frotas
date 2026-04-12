@@ -4,6 +4,7 @@ import { compararSenha, gerarToken, hashSenha } from "@/lib/auth";
 import { validateBody, loginSchema } from "@/lib/validation";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -118,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     return response;
   } catch (err) {
-    console.error("[login] Erro:", err);
+    logger.error({ err, route: "/api/auth/login" }, "login route failed");
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }

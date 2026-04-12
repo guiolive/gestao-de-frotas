@@ -12,7 +12,7 @@
  *   });
  *
  * Logging is fire-and-forget — failures are swallowed and reported via
- * console.error so they never break the request being audited. If audit
+ * logger.error so they never break the request being audited. If audit
  * persistence becomes mission-critical (e.g. compliance), revisit and
  * make it a hard dependency.
  */
@@ -20,6 +20,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "./prisma";
 import type { AuthUser } from "./authz";
+import { logger } from "./logger";
 
 export type AuditAcao =
   | "login_success"
@@ -76,6 +77,6 @@ export async function logAudit(input: LogAuditInput): Promise<void> {
     });
   } catch (err) {
     // Never fail the parent request because of audit persistence
-    console.error("[audit] Falha ao gravar AuditLog:", err);
+    logger.error({ err, acao: input.acao, recurso: input.recurso }, "falha ao gravar AuditLog");
   }
 }

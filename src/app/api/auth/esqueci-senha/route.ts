@@ -5,6 +5,7 @@ import { validateBody, esqueciSenhaSchema } from "@/lib/validation";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { enviarEmailResetSenha } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -76,7 +77,9 @@ export async function POST(request: NextRequest) {
         nome: usuario.nome,
         resetUrl,
         expiraEmMinutos: EXPIRA_MINUTOS,
-      }).catch((e) => console.error("[esqueci-senha] Falha no envio:", e));
+      }).catch((err) =>
+        logger.error({ err, usuarioId: usuario.id }, "falha ao enviar email de reset")
+      );
 
       await logAudit({
         request,
@@ -103,7 +106,7 @@ export async function POST(request: NextRequest) {
       message: "Se o e-mail estiver cadastrado, você receberá um link para redefinir a senha.",
     });
   } catch (err) {
-    console.error("[esqueci-senha] Erro:", err);
+    logger.error({ err, route: "/api/auth/esqueci-senha" }, "esqueci-senha route failed");
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }

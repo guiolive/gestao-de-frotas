@@ -5,6 +5,7 @@ import { hashSenha, validarSenhaForte } from "@/lib/auth";
 import { validateBody, resetarSenhaSchema } from "@/lib/validation";
 import { checkRateLimit, clientKey } from "@/lib/rate-limit";
 import { logAudit } from "@/lib/audit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -98,7 +99,7 @@ export async function POST(request: NextRequest) {
       message: "Senha redefinida com sucesso. Faça login com a nova senha.",
     });
   } catch (err) {
-    console.error("[resetar-senha] Erro:", err);
+    logger.error({ err, route: "/api/auth/resetar-senha" }, "resetar-senha route failed");
     return NextResponse.json({ error: "Erro interno" }, { status: 500 });
   }
 }

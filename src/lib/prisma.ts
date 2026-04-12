@@ -1,5 +1,6 @@
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { logger } from "./logger";
 
 let _prisma: InstanceType<typeof PrismaClient> | null = null;
 
@@ -23,7 +24,7 @@ function createPrismaClient() {
     }
   }
 
-  console.log("[prisma] Connecting to:", url.substring(0, 50));
+  logger.info({ url: url.substring(0, 50) }, "prisma connecting");
   const adapter = new PrismaLibSql(authToken ? { url, authToken } : { url });
   return new PrismaClient({ adapter });
 }
