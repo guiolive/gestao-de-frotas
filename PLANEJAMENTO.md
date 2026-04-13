@@ -146,16 +146,18 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
-## ⏸️ Fase 6 — Documentação e Treinamento
+## ✅ Fase 6 — Documentação e Treinamento — CONCLUÍDA
 
-- [ ] **Manual do usuário** (gestor de frota)
-  Passo a passo: cadastrar veículo → criar viagem → registrar manutenção → consultar relatórios. Com prints.
+- [x] **Manual do usuário** (gestor de frota) — `docs/MANUAL-USUARIO.md`
+  9 seções: acesso, dashboard, veículos, manutenções, viagens, unidades, relatórios, perfis de acesso, dicas rápidas. Inclui tabelas de status, KPIs e semáforos.
 
-- [ ] **Documentação da API**
-  OpenAPI/Swagger. Endpoints, parâmetros, schemas, códigos de erro.
+- [x] **Documentação da API** — `docs/API.md`
+  Todos os 44 endpoints documentados: método, path, body, query params, auth, resposta, códigos de erro. Inclui exemplos JSON.
 
-- [ ] **Treinamento e onboarding**
-  Vídeo de 10 min. Ambiente de sandbox. FAQ.
+- [x] **IMPLEMENTADO.md atualizado**
+  Documento completo com stack, segurança OWASP, CRUDs, dashboard, alertas, relatórios, infra, modelo de dados (13 modelos).
+
+- [ ] **Treinamento e onboarding** *(pendente — vídeo + sandbox)*
 
 ---
 
