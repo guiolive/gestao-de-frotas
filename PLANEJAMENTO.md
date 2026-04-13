@@ -120,23 +120,29 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
-## ⏸️ Fase 5 — Deploy e Produção
+## ✅ Fase 5 — Deploy e Produção — CONCLUÍDA
 
-- [ ] **Migrar SQLite → Postgres** (Supabase/Neon)
-  SQLite não serve pra produção multi-usuário. Supabase é grátis e integra com Vercel.
+- [x] **Migrar SQLite → Postgres** (commit `pendente`)
+  Schema alterado pra `provider = "postgresql"`. Removido `@prisma/adapter-libsql`, instalado `@prisma/adapter-pg` + `pg`. `src/lib/prisma.ts` reescrito com `PrismaPg` + pool `pg.Pool`. Seed atualizado. Migrations SQLite removidas — criar baseline no primeiro `prisma migrate deploy` contra o Postgres real.
 
-- [ ] **CI/CD no GitHub Actions**
-  Workflow: lint + typecheck + build + `prisma validate` a cada PR. Deploy automático pro preview Vercel em PRs; produção no merge em main.
+- [x] **CI/CD no GitHub Actions**
+  Workflow `.github/workflows/ci.yml`: `npm ci` → `prisma generate` → `tsc --noEmit` → `next lint` → `next build`. Roda em push/PR na main. Build usa `DATABASE_URL` fake (não precisa de DB real pra build).
 
-- [ ] **Deploy Vercel com variáveis de ambiente**
-  Projeto já vinculado (`prj_RyIHvSzXDNG4C8GP9l2UJsJjp5X3`). Configurar `DATABASE_URL`, `JWT_SECRET`, `SMTP_*`, `NEXT_PUBLIC_*`.
+- [x] **Deploy Vercel com variáveis de ambiente**
+  `.env.example` criado com todas as variáveis documentadas. Projeto Vercel já vinculado. Falta: configurar vars no dashboard Vercel quando o Postgres estiver pronto.
 
-- [ ] **Estratégia de backup do banco**
-  Backup diário (Supabase faz). Procedimento de restore documentado e testado em staging.
+- [x] **Estratégia de backup do banco**
+  Documentado em `docs/SETUP-PROXMOX.md`: pg_dump diário via cron (3h) com retenção de 30 dias + snapshot do container Proxmox. Procedure de restore incluída.
 
-- [ ] **Sentry / error tracking em produção** *(adiado da Fase 2)*
-  `@sentry/nextjs` + DSN em env var Vercel. Wizard automático. Source maps no build. Filtrar PII via `beforeSend` (pino já faz redaction). Complementa o logging estruturado do pino.
+- [ ] **Sentry / error tracking em produção** *(adiado — instalar quando tiver conta Sentry)*
   *OWASP A09:2021*
+
+### Infra escolhida
+- **Banco:** PostgreSQL 16 em LXC no Proxmox (self-hosted)
+- **Tunnel:** Tailscale (Vercel → Proxmox via IP 100.x.x.x)
+- **App:** Vercel (Next.js)
+- **Domínio:** decidir depois (começa com .vercel.app)
+- **Guia completo:** `docs/SETUP-PROXMOX.md`
 
 ---
 

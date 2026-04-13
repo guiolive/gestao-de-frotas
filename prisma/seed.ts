@@ -1,8 +1,10 @@
 import { PrismaClient } from "../src/generated/prisma/client";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
+import { PrismaPg } from "@prisma/adapter-pg";
+import pg from "pg";
 import { hashSync as argonHashSync } from "@node-rs/argon2";
 
-const adapter = new PrismaLibSql({ url: `file:${process.cwd()}/dev.db` });
+const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function main() {
