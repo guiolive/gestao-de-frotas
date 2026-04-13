@@ -159,6 +159,30 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
+## ⏸️ Fase 7 — Integração SEI
+
+Automatizar o fluxo de solicitação de veículos via SEI (Sistema Eletrônico de Informações).
+Endpoint SOAP: `https://sei.ufg.br/sei/ws/SeiWS.php` (confirmado ativo).
+
+**⚠️ BLOQUEANTE:** Precisa de acesso ao WebService via CERCOMP (cadastro de Sistema + serviços + usuário).
+
+- [ ] **Obter acesso ao WebService SOAP do SEI (CERCOMP)**
+  Pedir cadastro de Sistema (sugestão: `GestaoFrotas`), vincular serviços (listarTiposProcedimento, consultarDocumento, consultarProcedimento, incluirDocumento, enviarProcesso, lancarAndamento), criar usuário de sistema.
+
+- [ ] **Módulo `src/lib/sei.ts`** (client SOAP)
+  Client TypeScript pra comunicar com o SEI. Autenticação, parser XML→JSON dos campos dos formulários, cache de sessão.
+
+- [ ] **Ler formulário "Solicitação de Veículo Oficial"** (protocolo 6081265)
+  Extrair campos via `consultarDocumento`: destino, data saída/retorno, justificativa, solicitante, unidade. Mapear → campos do sistema de frotas.
+
+- [ ] **Gerar formulário "Indicação de Veículo e Motorista"** (protocolo 6112466)
+  Após aprovação no sistema: preencher formulário com veículo/motorista designados, incluir no processo (`incluirDocumento`), tramitar de volta (`enviarProcesso`), lançar andamento.
+
+- [ ] **Painel de solicitações SEI no dashboard** (`/solicitacoes-sei`)
+  Lista de processos recebidos na DLOG, verificação automática de disponibilidade, botões "Aprovar e designar" / "Negar", cron pra verificar novos processos.
+
+---
+
 ## ⏸️ Funcionalidades Ocultas (voltar depois)
 
 As funcionalidades abaixo foram **ocultadas da sidebar** (comentadas no `src/components/Sidebar.tsx`) para manter o foco nas manutenções nesta fase. As rotas, APIs e páginas continuam existindo — só não aparecem na navegação.
