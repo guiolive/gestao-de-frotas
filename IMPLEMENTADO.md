@@ -11,16 +11,18 @@ Sistema de gestão de frota da DLOG/UFG.
 
 ## Stack
 
-- **Framework:** Next.js 16.2.2 (App Router, Turbopack)
-- **Frontend:** React 19, TailwindCSS 4, Lucide Icons, Recharts
+- **Framework:** Next.js 14.2.35 (App Router, LTS) — alinhado com o AchadosPerdidos
+- **Frontend:** React 18.3, TailwindCSS 3.4, Lucide Icons, Recharts
 - **Backend:** API Routes (Route Handlers), Prisma 7
 - **Banco:** PostgreSQL 16 (Neon em produção, Proxmox planejado)
-- **Auth:** JWT (jose) + Argon2 (@node-rs/argon2), cookies httpOnly
+- **Auth:** JWT (jose, Edge-compatible) + Argon2id (@node-rs/argon2), cookies httpOnly
 - **Validação:** Zod
 - **Email:** Nodemailer
 - **Logging:** Pino (estruturado, redaction automática)
-- **Deploy:** Vercel
+- **Deploy:** Vercel (https://gestao-de-frota-mu.vercel.app)
 - **CI/CD:** GitHub Actions (typecheck + lint + build)
+
+> **Nota sobre a stack** — A versão inicial foi gerada com `create-next-app` 16 (React 19 + Tailwind 4). Em 15/04/2026 foi feito downgrade para Next 14.2 LTS pra alinhar com o projeto AchadosPerdidos e reduzir a curva de aprendizado (mais tutoriais disponíveis, menos breaking changes, sem `Promise<params>`). Detalhes em `RELATORIO-NOITE.md`.
 
 ---
 
