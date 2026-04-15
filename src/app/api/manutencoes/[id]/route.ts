@@ -5,9 +5,9 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   const manutencao = await prisma.manutencao.findUnique({
     where: { id },
     include: { veiculo: true, checklist: true, itens: true },
@@ -22,12 +22,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireAuth(request);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const body = await request.json();
 
   // Fetch current manutencao
@@ -59,11 +59,10 @@ export async function PUT(
     data.valorTotal = valorTotal > 0 ? valorTotal : null;
   }
 
-  // Update manutencao
-  const manutencao = await prisma.manutencao.update({
+  // Update manutencao (re-fetched below com checklist/itens atualizados)
+  await prisma.manutencao.update({
     where: { id },
     data,
-    include: { veiculo: true, checklist: true, itens: true },
   });
 
   // If checklist provided: delete all existing and create new

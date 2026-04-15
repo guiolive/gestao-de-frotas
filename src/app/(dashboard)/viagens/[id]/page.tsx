@@ -5,14 +5,7 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-function formatDate(date: Date | string | null): string {
-  if (!date) return "\u2014";
-  return new Date(date).toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
+// formatDate removido: não estava em uso. Reintroduzir se necessário.
 
 function formatDateTime(date: Date | string | null): string {
   if (!date) return "\u2014";
@@ -27,9 +20,9 @@ function formatCurrency(value: number | null | undefined): string {
 export default async function VisualizarViagemPage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const { id } = params;
   const viagem = await prisma.viagem.findUnique({
     where: { id },
     include: {

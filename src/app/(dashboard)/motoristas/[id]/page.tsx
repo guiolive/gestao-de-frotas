@@ -19,8 +19,8 @@ function fmtTel(t: string) {
     : t;
 }
 
-export default async function VisualizarMotoristaPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function VisualizarMotoristaPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const motorista = await prisma.motorista.findUnique({
     where: { id },
     include: {

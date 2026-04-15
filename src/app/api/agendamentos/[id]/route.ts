@@ -5,12 +5,12 @@ import { logAudit } from "@/lib/audit";
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireAuth(request);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const body = await request.json();
 
   const agendamento = await prisma.agendamento.update({
@@ -38,12 +38,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const snapshot = await prisma.agendamento.findUnique({ where: { id } });
   await prisma.agendamento.delete({ where: { id } });
 

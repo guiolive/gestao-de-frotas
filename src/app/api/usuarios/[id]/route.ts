@@ -6,12 +6,12 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const usuario = await prisma.usuario.findUnique({
     where: { id },
     select: {
@@ -38,12 +38,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
 
   const [data, err] = await validateBody(request, usuarioUpdateSchema);
   if (err) return err;
@@ -96,12 +96,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
 
   // Nao permitir auto-exclusao
   if (id === user.id) {

@@ -7,12 +7,12 @@ import { randomBytes } from "crypto";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
 
   const usuario = await prisma.usuario.findUnique({ where: { id } });
   if (!usuario) {

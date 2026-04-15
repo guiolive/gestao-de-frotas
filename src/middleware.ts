@@ -9,7 +9,7 @@ const PUBLIC_PATHS = [
   "/api/auth/resetar-senha",
 ];
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Allow public paths, static files, and Next.js internals
@@ -49,8 +49,7 @@ export async function proxy(request: NextRequest) {
   // IMPORTANT: NextResponse.next({ request: { headers } }) sets headers
   // upstream (visible to handlers via request.headers.get). Setting them on
   // response.headers would only send them back to the client, leaving
-  // route handlers reading `null`. See:
-  // node_modules/next/dist/docs/01-app/03-api-reference/03-file-conventions/proxy.md
+  // route handlers reading `null`.
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-user-id", payload.id);
   requestHeaders.set("x-user-tipo", payload.tipo);

@@ -1,5 +1,4 @@
-import type { NextConfig } from "next";
-
+// @ts-check
 const isProd = process.env.NODE_ENV === "production";
 
 /**
@@ -7,12 +6,9 @@ const isProd = process.env.NODE_ENV === "production";
  *
  * `'unsafe-inline'` em `style-src` é pragmaticamente necessário porque o
  * Next injeta tags de estilo inline (`<style data-n-...>`) pra otimizações de
- * crítico CSS e Tailwind. Substituir por nonce exige wiring manual no root
- * layout e quebra Server Components em alguns casos — fica pra depois se a
- * gente precisar de um A+ no Observatory.
+ * crítico CSS e Tailwind.
  *
- * Em dev a CSP fica completamente aberta pra não quebrar HMR do Turbopack
- * (que usa websocket + inline scripts).
+ * Em dev a CSP fica completamente aberta pra não quebrar HMR.
  */
 const cspProd = [
   "default-src 'self'",
@@ -30,7 +26,7 @@ const cspProd = [
 
 const securityHeaders = [
   // HSTS — só tem efeito em HTTPS. Em dev (HTTP/localhost) o browser ignora.
-  // max-age 2 anos + includeSubDomains + preload (pronto pra enviar ao hstspreload.org depois do deploy)
+  // max-age 2 anos + includeSubDomains + preload
   {
     key: "Strict-Transport-Security",
     value: "max-age=63072000; includeSubDomains; preload",
@@ -48,16 +44,16 @@ const securityHeaders = [
     value: "strict-origin-when-cross-origin",
   },
   {
-    // Desabilita APIs de browser que o app não usa — reduz superfície de
-    // side-effects caso um script de terceiro seja comprometido
+    // Desabilita APIs de browser que o app não usa — reduz superfície
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=()",
+    value:
+      "camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=(), usb=()",
   },
   {
     key: "X-DNS-Prefetch-Control",
     value: "on",
   },
-  // CSP só em prod (ver nota acima)
+  // CSP só em prod
   ...(isProd
     ? [
         {
@@ -68,20 +64,25 @@ const securityHeaders = [
     : []),
 ];
 
-const nextConfig: NextConfig = {
-  turbopack: {
-    root: process.cwd(),
-  },
-  // Permite testar o dev server via Tailscale (IP do Mac na tailnet).
-  // Aceito só em dev — produção não usa esse campo.
-  allowedDevOrigins: ["100.87.247.76"],
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   // Remove header `X-Powered-By: Next.js` (evita fingerprinting)
   poweredByHeader: false,
+  experimental: {
+    // Pacotes que são NATIVE modules (.node) ou puro Node — webpack não consegue
+    // bundleizá-los. Esses ficam externos (require() em runtime no servidor).
+    serverComponentsExternalPackages: [
+      "@node-rs/argon2",
+      "@prisma/client",
+      "@prisma/adapter-pg",
+      "pino",
+      "pino-pretty",
+    ],
+  },
   async headers() {
     return [
       {
-        // Aplica a tudo. Routes /api/* também pegam, o que é OK —
-        // API JSON com headers de segurança não incomoda nenhum client.
+        // Aplica a tudo. Routes /api/* também pegam, o que é OK.
         source: "/:path*",
         headers: securityHeaders,
       },

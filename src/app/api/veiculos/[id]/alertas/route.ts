@@ -5,9 +5,9 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   const alertas = await prisma.alertaKm.findMany({
     where: { veiculoId: id },
     orderBy: { criadoEm: "desc" },
@@ -17,12 +17,12 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const body = await request.json();
 
   const alerta = await prisma.alertaKm.create({
@@ -50,12 +50,12 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const { searchParams } = request.nextUrl;
   const alertaId = searchParams.get("alertaId");
 

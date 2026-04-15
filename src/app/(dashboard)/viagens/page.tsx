@@ -37,9 +37,9 @@ interface Filters {
 export default async function ViagensPage({
   searchParams,
 }: {
-  searchParams: Promise<Filters>;
+  searchParams: Filters;
 }) {
-  const filters = await searchParams;
+  const filters = searchParams;
 
   const hasFilters = Object.values(filters).some((v) => v);
 

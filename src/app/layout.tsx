@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { Geist } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
+// Next 14 não inclui Geist em next/font/google (adicionado no Next 15).
+// Usando Inter (sans-serif similar, sempre disponível).
+const interSans = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
@@ -18,7 +20,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" className={`${geistSans.variable} h-full antialiased`}>
+    <html lang="pt-BR" className={`${interSans.variable} h-full antialiased`}>
       <body className="min-h-full bg-gray-50">{children}</body>
     </html>
   );
