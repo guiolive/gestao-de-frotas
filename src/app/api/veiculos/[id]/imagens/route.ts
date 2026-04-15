@@ -51,9 +51,9 @@ function detectMimeFromBuffer(buffer: Buffer): string | null {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   const imagens = await prisma.imagemVeiculo.findMany({
     where: { veiculoId: id },
     orderBy: { criadoEm: "desc" },
@@ -63,12 +63,12 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
 
   // Confirmar veículo existe
   const veiculo = await prisma.veiculo.findUnique({ where: { id } });
@@ -156,12 +156,12 @@ export async function POST(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const { searchParams } = request.nextUrl;
   const imagemId = searchParams.get("imagemId");
 

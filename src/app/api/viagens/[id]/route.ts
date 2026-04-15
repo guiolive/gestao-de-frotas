@@ -5,9 +5,9 @@ import { logAudit } from "@/lib/audit";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   const viagem = await prisma.viagem.findUnique({
     where: { id },
     include: {
@@ -27,12 +27,12 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireAuth(request);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
   const body = await request.json();
 
   // Fetch current viagem to check business rules
@@ -139,12 +139,12 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const { id } = await params;
+  const { id } = params;
 
   const viagem = await prisma.viagem.findUnique({ where: { id } });
   if (!viagem) {

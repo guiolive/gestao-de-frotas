@@ -12,9 +12,9 @@ function formatCurrency(value: number | null | undefined): string {
 export default async function ManutencoesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tipo?: string; status?: string }>;
+  searchParams: { tipo?: string; status?: string };
 }) {
-  const filters = await searchParams;
+  const filters = searchParams;
 
   const where: Record<string, string> = {};
   if (filters.tipo) where.tipo = filters.tipo;

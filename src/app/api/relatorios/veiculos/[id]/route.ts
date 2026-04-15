@@ -3,9 +3,9 @@ import { NextRequest } from "next/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const { id } = await params;
+  const { id } = params;
   const { searchParams } = request.nextUrl;
   const dataInicio = searchParams.get("dataInicio");
   const dataFim = searchParams.get("dataFim");

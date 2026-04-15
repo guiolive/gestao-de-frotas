@@ -17,8 +17,8 @@ const TIPOS_ALERTA: Record<string, string> = {
   fluido_arrefecimento: "Fluido de Arrefecimento",
 };
 
-export default async function ConsultarVeiculoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+export default async function ConsultarVeiculoPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const veiculo = await prisma.veiculo.findUnique({
     where: { id },
     include: {

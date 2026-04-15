@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutDashboard, Car, Users, Building2, Map, Calendar, Wrench, BarChart3, LogOut, Menu, X } from "lucide-react";
+// Users e Calendar ficaram comentados quando ocultamos /motoristas e /agendamentos —
+// mantidos no comentário das NAV_ITEMS para reativar fácil quando voltarem a aparecer.
+import { LayoutDashboard, Car, UserCog, Building2, Map, Wrench, BarChart3, LogOut, Menu, X } from "lucide-react";
 import { useState, useEffect } from "react";
 
 const NAV_ITEMS = [
@@ -14,6 +16,7 @@ const NAV_ITEMS = [
   // { href: "/agendamentos", label: "Agendamentos", icon: Calendar },  // Oculto temporariamente — foco em manutenções
   { href: "/manutencoes", label: "Manutenções", icon: Wrench },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
+  { href: "/usuarios", label: "Usuários", icon: UserCog },
 ];
 
 interface User {

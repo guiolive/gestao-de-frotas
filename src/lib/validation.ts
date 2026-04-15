@@ -149,3 +149,23 @@ export const resetarSenhaSchema = z.object({
   token: z.string().min(32, "Token inválido").max(200),
   novaSenha: z.string().min(8, "Senha deve ter no mínimo 8 caracteres").max(200),
 });
+
+export const usuarioCreateSchema = z.object({
+  nome: z.string().trim().min(1, "Nome é obrigatório").max(200),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .email("E-mail inválido")
+    .max(200)
+    .refine((e) => e.endsWith("@ufg.br"), "E-mail deve ser @ufg.br"),
+  tipo: z.enum(["OPERADOR", "ADMINISTRADOR"]).default("OPERADOR"),
+  matricula: z.string().trim().max(50).optional().nullable(),
+});
+
+export const usuarioUpdateSchema = usuarioCreateSchema
+  .omit({ email: true })
+  .partial()
+  .extend({
+    ativo: z.boolean().optional(),
+  });

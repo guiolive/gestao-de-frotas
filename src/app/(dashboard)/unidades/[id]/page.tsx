@@ -7,9 +7,9 @@ export const dynamic = "force-dynamic";
 export default async function UnidadeDetalhePage({
   params,
 }: {
-  params: Promise<{ id: string }>;
+  params: { id: string };
 }) {
-  const { id } = await params;
+  const { id } = params;
 
   const unidade = await prisma.unidade.findUnique({
     where: { id },
