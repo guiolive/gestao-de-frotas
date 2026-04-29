@@ -31,6 +31,14 @@ export async function POST(request: NextRequest) {
       { status: 409 }
     );
   }
+  if (data.renavam) {
+    const r = await prisma.veiculo.findUnique({ where: { renavam: data.renavam } });
+    if (r) return Response.json({ error: "Já existe um veículo com esse Renavam." }, { status: 409 });
+  }
+  if (data.chassi) {
+    const c = await prisma.veiculo.findUnique({ where: { chassi: data.chassi } });
+    if (c) return Response.json({ error: "Já existe um veículo com esse chassi." }, { status: 409 });
+  }
 
   const veiculo = await prisma.veiculo.create({ data });
 

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, veiculoUpdateSchema } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -28,23 +29,36 @@ export async function PUT(
   if (authErr) return authErr;
 
   const { id } = params;
-  const body = await request.json();
+  const [data, err] = await validateBody(request, veiculoUpdateSchema);
+  if (err) return err;
 
-  const veiculo = await prisma.veiculo.update({
-    where: { id },
-    data: {
-      placa: body.placa,
-      modelo: body.modelo,
-      marca: body.marca,
-      ano: body.ano ? Number(body.ano) : undefined,
-      cor: body.cor,
-      quilometragem: body.quilometragem
-        ? Number(body.quilometragem)
-        : undefined,
-      tipo: body.tipo,
-      status: body.status,
-    },
-  });
+  // Unicidade — só checa quando o campo está sendo enviado e tem valor.
+  if (data.renavam) {
+    const existente = await prisma.veiculo.findUnique({
+      where: { renavam: data.renavam },
+    });
+    if (existente && existente.id !== id) {
+      return Response.json(
+        { error: "Já existe um veículo com esse Renavam" },
+        { status: 409 }
+      );
+    }
+  }
+  if (data.chassi) {
+    const existente = await prisma.veiculo.findUnique({
+      where: { chassi: data.chassi },
+    });
+    if (existente && existente.id !== id) {
+      return Response.json(
+        { error: "Já existe um veículo com esse chassi" },
+        { status: 409 }
+      );
+    }
+  }
+
+  // O update schema é `.partial()` — só os campos enviados entram no `data`.
+  // Strings vazias não passam aqui (form converte para null antes de enviar).
+  const veiculo = await prisma.veiculo.update({ where: { id }, data });
 
   await logAudit({
     request,

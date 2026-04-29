@@ -50,6 +50,18 @@ export async function PUT(
   if (body.custoEstimado !== undefined) data.custoEstimado = body.custoEstimado ? Number(body.custoEstimado) : null;
   if (body.status !== undefined) data.status = body.status;
 
+  // Rastreio Prime (terceirizada) — campos manuais até integração com webservice
+  if (body.oficinaId !== undefined) {
+    const v = body.oficinaId;
+    data.oficinaId = typeof v === "string" && v.trim() !== "" ? v : null;
+  }
+  if (body.enviadaPrimeEm !== undefined) {
+    data.enviadaPrimeEm = body.enviadaPrimeEm ? new Date(body.enviadaPrimeEm) : null;
+  }
+  if (body.retornoEfetivoEm !== undefined) {
+    data.retornoEfetivoEm = body.retornoEfetivoEm ? new Date(body.retornoEfetivoEm) : null;
+  }
+
   // If itens provided, recalculate valorTotal
   if (body.itens !== undefined) {
     const valorTotal = (body.itens as { valor: number }[]).reduce(

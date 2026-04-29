@@ -23,12 +23,12 @@ const CATEGORIAS_CHECKLIST = [
   { value: "motor", label: "Motor" },
   { value: "freios", label: "Freios" },
   { value: "pneus", label: "Pneus" },
-  { value: "suspensao", label: "Suspens\u00e3o" },
-  { value: "transmissao", label: "Transmiss\u00e3o" },
-  { value: "eletrica", label: "El\u00e9trica" },
+  { value: "suspensao", label: "Suspensão" },
+  { value: "transmissao", label: "Transmissão" },
+  { value: "eletrica", label: "Elétrica" },
   { value: "fluidos", label: "Fluidos" },
   { value: "carroceria", label: "Carroceria" },
-  { value: "documentacao", label: "Documenta\u00e7\u00e3o" },
+  { value: "documentacao", label: "Documentação" },
 ];
 
 export default function NovaManutencaoPage() {
@@ -148,7 +148,7 @@ export default function NovaManutencaoPage() {
       router.push("/manutencoes");
     } else {
       const err = await res.json();
-      alert(err.error || "Erro ao criar manuten\u00e7\u00e3o");
+      alert(err.error || "Erro ao criar manutenção");
       setLoading(false);
     }
   }
@@ -159,19 +159,19 @@ export default function NovaManutencaoPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Nova Manuten\u00e7\u00e3o
+        Nova Manutenção
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-6 max-w-3xl">
         {/* Basic data */}
         <div className="bg-white rounded-lg shadow p-6 space-y-4">
           <h2 className="text-lg font-semibold text-gray-800">
-            Dados da Manuten\u00e7\u00e3o
+            Dados da Manutenção
           </h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ve\u00edculo *
+                Veículo *
               </label>
               <select name="veiculoId" required className={inputClass}>
                 <option value="">Selecione</option>
@@ -195,7 +195,7 @@ export default function NovaManutencaoPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Descri\u00e7\u00e3o *
+              Descrição *
             </label>
             <textarea
               name="descricao"
@@ -218,7 +218,7 @@ export default function NovaManutencaoPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Previs\u00e3o Sa\u00edda
+                Previsão Saída
               </label>
               <input
                 name="previsaoSaida"
@@ -242,7 +242,7 @@ export default function NovaManutencaoPage() {
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Observa\u00e7\u00f5es
+              Observações
             </label>
             <textarea name="observacoes" rows={2} className={inputClass} />
           </div>
@@ -251,10 +251,10 @@ export default function NovaManutencaoPage() {
         {/* Service Items */}
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Itens de Servi\u00e7o
+            Itens de Serviço
           </h2>
           <p className="text-sm text-gray-500 mb-4">
-            Pesquise e adicione os servi\u00e7os realizados nesta manuten\u00e7\u00e3o.
+            Pesquise e adicione os serviços realizados nesta manutenção.
           </p>
 
           {/* Service search */}
@@ -264,7 +264,7 @@ export default function NovaManutencaoPage() {
                 type="text"
                 value={buscaServico}
                 onChange={(e) => setBuscaServico(e.target.value)}
-                placeholder="Pesquisar servi\u00e7o (ex: troca de \u00f3leo, farol, pastilha...)"
+                placeholder="Pesquisar serviço (ex: troca de óleo, farol, pastilha...)"
                 className={`flex-1 ${inputClass}`}
               />
               <button
@@ -335,7 +335,7 @@ export default function NovaManutencaoPage() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-1">
-                        Observa\u00e7\u00e3o
+                        Observação
                       </label>
                       <input
                         type="text"
@@ -424,7 +424,7 @@ export default function NovaManutencaoPage() {
             disabled={loading}
             className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? "Salvando..." : "Registrar Manuten\u00e7\u00e3o"}
+            {loading ? "Salvando..." : "Registrar Manutenção"}
           </button>
           <button
             type="button"

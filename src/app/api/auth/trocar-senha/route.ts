@@ -44,11 +44,23 @@ export async function POST(request: NextRequest) {
     dados: { primeiroAcesso: usuario.primeiroAcesso },
   });
 
-  const token = await gerarToken({ id: usuario.id, email: usuario.email, tipo: usuario.tipo });
+  const token = await gerarToken({
+    id: usuario.id,
+    email: usuario.email,
+    tipo: usuario.tipo,
+    setor: usuario.setor,
+  });
 
   const response = NextResponse.json({
     token,
-    user: { id: usuario.id, nome: usuario.nome, email: usuario.email, tipo: usuario.tipo, primeiroAcesso: false },
+    user: {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      tipo: usuario.tipo,
+      setor: usuario.setor,
+      primeiroAcesso: false,
+    },
   });
 
   response.cookies.set("token", token, {

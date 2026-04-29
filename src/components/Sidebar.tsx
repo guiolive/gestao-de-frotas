@@ -2,26 +2,52 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-// Users e Calendar ficaram comentados quando ocultamos /motoristas e /agendamentos —
-// mantidos no comentário das NAV_ITEMS para reativar fácil quando voltarem a aparecer.
-import { LayoutDashboard, Car, UserCog, Building2, Map, Wrench, BarChart3, LogOut, Menu, X } from "lucide-react";
+// Users segue comentado enquanto /motoristas está oculto.
+import { LayoutDashboard, Car, UserCog, Building2, Map, Wrench, BarChart3, LogOut, Menu, X, Hammer, Package, ClipboardList, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 
-const NAV_ITEMS = [
+/**
+ * `setores` define em quais setores o item aparece na sidebar:
+ *   - undefined → aparece pra todo mundo (Dashboard, Veículos, Usuários…).
+ *   - ["TRANSPORTE"] → só transporte/AMBOS.
+ *   - ["MANUTENCAO"] → só manutenção/AMBOS.
+ * O setor "AMBOS" sempre vê tudo (lógica em `itemVisivelPraSetor`).
+ */
+const NAV_ITEMS: Array<{
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  setores?: Array<"TRANSPORTE" | "MANUTENCAO">;
+}> = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/veiculos", label: "Veículos", icon: Car },
   // { href: "/motoristas", label: "Motoristas", icon: Users },  // Oculto temporariamente — foco em manutenções
   { href: "/unidades", label: "Unidades", icon: Building2 },
-  { href: "/viagens", label: "Viagens", icon: Map },
-  // { href: "/agendamentos", label: "Agendamentos", icon: Calendar },  // Oculto temporariamente — foco em manutenções
-  { href: "/manutencoes", label: "Manutenções", icon: Wrench },
+  { href: "/viagens", label: "Viagens", icon: Map, setores: ["TRANSPORTE"] },
+  { href: "/agendamentos", label: "Agendamentos", icon: Calendar, setores: ["TRANSPORTE"] },
+  { href: "/manutencoes", label: "Manutenções", icon: Wrench, setores: ["MANUTENCAO"] },
+  { href: "/oficinas", label: "Oficinas", icon: Hammer, setores: ["MANUTENCAO"] },
+  { href: "/catalogo/servicos", label: "Catálogo · Serviços", icon: ClipboardList, setores: ["MANUTENCAO"] },
+  { href: "/catalogo/pecas", label: "Catálogo · Peças", icon: Package, setores: ["MANUTENCAO"] },
   { href: "/relatorios", label: "Relatórios", icon: BarChart3 },
   { href: "/usuarios", label: "Usuários", icon: UserCog },
 ];
 
+function itemVisivelPraSetor(
+  itemSetores: Array<"TRANSPORTE" | "MANUTENCAO"> | undefined,
+  userSetor: string | undefined
+): boolean {
+  // Item sem restrição → todo mundo vê.
+  if (!itemSetores) return true;
+  // Setor não definido (token antigo) ou AMBOS → vê tudo.
+  if (!userSetor || userSetor === "AMBOS") return true;
+  return itemSetores.includes(userSetor as "TRANSPORTE" | "MANUTENCAO");
+}
+
 interface User {
   nome: string;
   tipo: string;
+  setor?: string;
 }
 
 export default function Sidebar() {
@@ -62,21 +88,23 @@ export default function Sidebar() {
       </div>
 
       <nav className="flex-1 px-3 space-y-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
-          <Link
-            key={href}
-            href={href}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-              isActive(href)
-                ? "bg-blue-600/20 text-blue-400"
-                : "text-slate-400 hover:text-white hover:bg-white/5"
-            }`}
-          >
-            <Icon className={`w-5 h-5 ${isActive(href) ? "text-blue-400" : ""}`} />
-            {label}
-          </Link>
-        ))}
+        {NAV_ITEMS.filter((it) => itemVisivelPraSetor(it.setores, user?.setor)).map(
+          ({ href, label, icon: Icon }) => (
+            <Link
+              key={href}
+              href={href}
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive(href)
+                  ? "bg-blue-600/20 text-blue-400"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Icon className={`w-5 h-5 ${isActive(href) ? "text-blue-400" : ""}`} />
+              {label}
+            </Link>
+          )
+        )}
       </nav>
 
       {user && (

@@ -161,12 +161,12 @@ Controle de acesso por tipo de usuário e prevenção de IDOR.
 
 ---
 
-## ⏸️ Fase 7 — Integração SEI
+## ⏸️ Fase 7 — Integração SEI — SUSPENSA
 
 Automatizar o fluxo de solicitação de veículos via SEI (Sistema Eletrônico de Informações).
 Endpoint SOAP: `https://sei.ufg.br/sei/ws/SeiWS.php` (confirmado ativo).
 
-**⚠️ BLOQUEANTE:** Precisa de acesso ao WebService via CERCOMP (cadastro de Sistema + serviços + usuário).
+**⚠️ SUSPENSA (2026-04-15):** Fase suspensa por decisão do DLOG. Bloqueio original: acesso ao WebService via CERCOMP.
 
 - [ ] **Obter acesso ao WebService SOAP do SEI (CERCOMP)**
   Pedir cadastro de Sistema (sugestão: `GestaoFrotas`), vincular serviços (listarTiposProcedimento, consultarDocumento, consultarProcedimento, incluirDocumento, enviarProcesso, lancarAndamento), criar usuário de sistema.

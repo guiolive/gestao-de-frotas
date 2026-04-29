@@ -1,7 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 
 interface Veiculo {
   id: string;
@@ -20,6 +20,15 @@ interface Unidade {
   nome: string;
   ativo: boolean;
 }
+interface AgendamentoLite {
+  id: string;
+  veiculoId: string;
+  dataInicio: string;
+  dataFim: string;
+  motivo: string;
+  unidade: { sigla: string } | null;
+  solicitante: string;
+}
 
 const UF_BRASIL = [
   "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
@@ -28,11 +37,28 @@ const UF_BRASIL = [
 ];
 
 export default function NovaViagemPage() {
+  return (
+    <Suspense fallback={<div className="text-gray-500">Carregando…</div>}>
+      <NovaViagemForm />
+    </Suspense>
+  );
+}
+
+function NovaViagemForm() {
   const router = useRouter();
+  const params = useSearchParams();
+  // Pre-seleção via querystring (ex.: link "Registrar viagem" do detalhe
+  // de um agendamento). Mantém o operador focado.
+  const agendamentoIdInicial = params.get("agendamentoId") ?? "";
+  const veiculoIdInicial = params.get("veiculoId") ?? "";
+
   const [loading, setLoading] = useState(false);
   const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
   const [motoristas, setMotoristas] = useState<Motorista[]>([]);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [agendamentosAprovados, setAgendamentosAprovados] = useState<AgendamentoLite[]>([]);
+  const [veiculoId, setVeiculoId] = useState<string>(veiculoIdInicial);
+  const [agendamentoId, setAgendamentoId] = useState<string>(agendamentoIdInicial);
   const [showPcdp1, setShowPcdp1] = useState(false);
   const [showPcdp2, setShowPcdp2] = useState(false);
 
@@ -45,7 +71,32 @@ export default function NovaViagemPage() {
     fetch("/api/veiculos").then((r) => r.json()).then(setVeiculos);
     fetch("/api/motoristas").then((r) => r.json()).then(setMotoristas);
     fetch("/api/unidades").then((r) => r.json()).then(setUnidades);
+    // Lista enxuta de agendamentos aprovados — filtramos client-side por
+    // veículo. Para frotas grandes vale paginar/filter no servidor.
+    fetch("/api/agendamentos?status=aprovado")
+      .then((r) => r.json())
+      .then(setAgendamentosAprovados);
   }, []);
+
+  // Se chegou com agendamentoId pré-selecionado, sincroniza o veículo.
+  useEffect(() => {
+    if (agendamentoIdInicial && agendamentosAprovados.length > 0) {
+      const a = agendamentosAprovados.find((x) => x.id === agendamentoIdInicial);
+      if (a) setVeiculoId(a.veiculoId);
+    }
+  }, [agendamentoIdInicial, agendamentosAprovados]);
+
+  // Quando o veículo muda, se o agendamento atual é de outro veículo,
+  // limpa para evitar payload inconsistente.
+  useEffect(() => {
+    if (!agendamentoId) return;
+    const a = agendamentosAprovados.find((x) => x.id === agendamentoId);
+    if (a && a.veiculoId !== veiculoId) setAgendamentoId("");
+  }, [veiculoId, agendamentoId, agendamentosAprovados]);
+
+  const agendamentosDoVeiculo = agendamentosAprovados.filter(
+    (a) => !veiculoId || a.veiculoId === veiculoId
+  );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,6 +114,10 @@ export default function NovaViagemPage() {
     if (totalDiarias) {
       data.totalDiarias = totalDiarias;
     }
+
+    // Vínculo com agendamento (opcional). FormData não pega selects fora
+    // do form ou state controlado, então propagamos do state.
+    if (agendamentoId) data.agendamentoId = agendamentoId;
 
     // PCDP validation: if diárias exist, PCDP número is required
     if (diaria && qtdDiarias && !data.pcdpNumero) {
@@ -107,7 +162,13 @@ export default function NovaViagemPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Veículo *
               </label>
-              <select name="veiculoId" required className={inputClass}>
+              <select
+                name="veiculoId"
+                required
+                value={veiculoId}
+                onChange={(e) => setVeiculoId(e.target.value)}
+                className={inputClass}
+              >
                 <option value="">Selecione</option>
                 {veiculosDisponiveis.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -188,6 +249,40 @@ export default function NovaViagemPage() {
                 className={inputClass}
               />
             </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Originada de agendamento
+            </label>
+            <select
+              value={agendamentoId}
+              onChange={(e) => setAgendamentoId(e.target.value)}
+              className={inputClass}
+              disabled={!veiculoId}
+            >
+              <option value="">
+                {veiculoId
+                  ? agendamentosDoVeiculo.length
+                    ? "— Sem vínculo —"
+                    : "Sem agendamentos aprovados para este veículo"
+                  : "Escolha o veículo primeiro"}
+              </option>
+              {agendamentosDoVeiculo.map((a) => {
+                const sigla = a.unidade?.sigla ?? a.solicitante;
+                const ini = new Date(a.dataInicio).toLocaleDateString("pt-BR");
+                const fim = new Date(a.dataFim).toLocaleDateString("pt-BR");
+                return (
+                  <option key={a.id} value={a.id}>
+                    {sigla} · {ini} → {fim} · {a.motivo}
+                  </option>
+                );
+              })}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Opcional. Vincula esta viagem ao agendamento que a originou —
+              útil para rastrear quem reservou o veículo.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

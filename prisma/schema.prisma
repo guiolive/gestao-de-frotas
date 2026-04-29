@@ -12,7 +12,13 @@ model Usuario {
   nome           String
   email          String    @unique
   senha          String
+  /// Privilégio (o que pode editar/excluir).
   tipo           String    @default("OPERADOR") // OPERADOR | ADMINISTRADOR
+  /// Área de atuação. Determina qual dashboard inicial e quais menus
+  /// aparecem na sidebar. Ortogonal ao `tipo` — um usuário pode ser
+  /// ADMIN do TRANSPORTE, ADMIN da MANUTENCAO, ou AMBOS (diretor).
+  /// Default `AMBOS` pra não quebrar usuários pré-migração.
+  setor          String    @default("AMBOS") // TRANSPORTE | MANUTENCAO | AMBOS
   ativo          Boolean   @default(true)
   matricula      String?
   fotoPerfil     String?
@@ -46,15 +52,15 @@ model PasswordResetToken {
 /// `dados` guarda snapshot do payload (JSON serializado) — útil pra forense
 /// mas pode crescer rápido; revisar retenção em produção.
 model AuditLog {
-  id         String   @id @default(cuid())
-  usuarioId  String?
-  acao       String   // login_success | login_failure | create | update | delete
-  recurso    String   // veiculo | motorista | unidade | usuario | viagem | ...
-  recursoId  String?  // id do recurso afetado (null em login)
-  dados      String?  // JSON.stringify do payload/snapshot
-  ip         String?
-  userAgent  String?
-  criadoEm   DateTime @default(now())
+  id        String   @id @default(cuid())
+  usuarioId String?
+  acao      String // login_success | login_failure | create | update | delete
+  recurso   String // veiculo | motorista | unidade | usuario | viagem | ...
+  recursoId String? // id do recurso afetado (null em login)
+  dados     String? // JSON.stringify do payload/snapshot
+  ip        String?
+  userAgent String?
+  criadoEm  DateTime @default(now())
 
   usuario Usuario? @relation(fields: [usuarioId], references: [id], onDelete: SetNull)
 
@@ -64,24 +70,37 @@ model AuditLog {
 }
 
 model Veiculo {
-  id            String   @id @default(cuid())
-  placa         String   @unique
+  id            String @id @default(cuid())
+  placa         String @unique
   modelo        String
   marca         String
   ano           Int
   cor           String
-  quilometragem Float    @default(0)
+  quilometragem Float  @default(0)
   valorVeiculo  Float?
-  tipo          String   // carro | van | caminhao | onibus
-  status        String   @default("disponivel") // disponivel | em_uso | manutencao | inativo
-  criadoEm      DateTime @default(now())
-  atualizadoEm  DateTime @updatedAt
+  tipo          String // carro | van | caminhao | onibus
+  status        String @default("disponivel") // disponivel | em_uso | manutencao | inativo
+
+  // Documentação (opcionais para backfill de veículos já cadastrados;
+  // obrigar no form a partir de novos cadastros — ver validation.ts)
+  renavam     String? @unique
+  chassi      String? @unique
+  combustivel String? // gasolina | etanol | flex | diesel | gnv | hibrido | eletrico
+
+  // FIPE — cache local; atualizado na criação/edição e 1x/mês
+  valorFipe        Float?
+  fipeCodigo       String?
+  fipeAtualizadoEm DateTime?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
 
   viagens      Viagem[]
   agendamentos Agendamento[]
   manutencoes  Manutencao[]
   imagens      ImagemVeiculo[]
   alertasKm    AlertaKm[]
+  baterias     Bateria[]
 }
 
 model ImagemVeiculo {
@@ -90,6 +109,27 @@ model ImagemVeiculo {
   url       String
   descricao String?
   criadoEm  DateTime @default(now())
+
+  veiculo Veiculo @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
+
+  @@index([veiculoId])
+}
+
+/// Bateria do veículo. Um veículo pode ter múltiplas baterias ao longo do
+/// tempo (histórico). A "ativa" é aquela com `dataSubstituicao = null`.
+/// Previsão de troca = `dataInstalacao + vidaUtilMeses`; alerta dispara
+/// `alertaAntesDeDias` antes do fim e quando vencido.
+model Bateria {
+  id                String    @id @default(cuid())
+  veiculoId         String
+  fabricante        String?
+  amperagem         Int? // Ah — tipicamente 45, 60, 70, 100
+  dataInstalacao    DateTime
+  vidaUtilMeses     Int       @default(24)
+  alertaAntesDeDias Int       @default(30)
+  dataSubstituicao  DateTime? // preenchido quando essa bateria é removida
+  observacao        String?
+  criadoEm          DateTime  @default(now())
 
   veiculo Veiculo @relation(fields: [veiculoId], references: [id], onDelete: Cascade)
 
@@ -134,69 +174,95 @@ model Unidade {
   ativo    Boolean  @default(true)
   criadoEm DateTime @default(now())
 
-  viagens Viagem[]
+  viagens      Viagem[]
+  agendamentos Agendamento[]
 }
 
 model Viagem {
-  id            String    @id @default(cuid())
-  veiculoId     String
-  motoristaId   String
-  origem        String
-  destino       String
-  dataSaida     DateTime
-  dataRetorno   DateTime?
-  kmInicial     Float
-  kmFinal       Float?
-  status        String    @default("agendada") // agendada | em_andamento | concluida | cancelada
-  observacoes   String?
-  processoSei   String?
-  unidadeId     String?
-  ufDestino     String?
-  diaria        Float?
-  solicitante   String?
-  motorista2Id  String?
-  kmPorTrecho   Float?
-  qtdDiarias    Float?
-  pcdpNumero    String?
-  pcdpData      String?
-  pcdpValor     Float?
+  id               String    @id @default(cuid())
+  veiculoId        String
+  /// Agendamento que originou a viagem (opcional). Uma viagem pode existir
+  /// sem agendamento (urgência) e um agendamento pode gerar mais de uma
+  /// viagem se o uso for fracionado entre destinos.
+  agendamentoId    String?
+  motoristaId      String
+  origem           String
+  destino          String
+  dataSaida        DateTime
+  dataRetorno      DateTime?
+  kmInicial        Float
+  kmFinal          Float?
+  status           String    @default("agendada") // agendada | em_andamento | concluida | cancelada
+  observacoes      String?
+  processoSei      String?
+  unidadeId        String?
+  ufDestino        String?
+  diaria           Float?
+  solicitante      String?
+  motorista2Id     String?
+  kmPorTrecho      Float?
+  qtdDiarias       Float?
+  pcdpNumero       String?
+  pcdpData         String?
+  pcdpValor        Float?
   pcdp2Solicitante String?
-  pcdp2Numero   String?
-  pcdp2Data     String?
-  pcdp2Valor    Float?
-  totalDiarias  Float?
-  criadoEm      DateTime  @default(now())
+  pcdp2Numero      String?
+  pcdp2Data        String?
+  pcdp2Valor       Float?
+  totalDiarias     Float?
+  criadoEm         DateTime  @default(now())
 
-  veiculo    Veiculo    @relation(fields: [veiculoId], references: [id])
-  motorista  Motorista  @relation("motorista1", fields: [motoristaId], references: [id])
-  motorista2 Motorista? @relation("motorista2", fields: [motorista2Id], references: [id])
-  unidade    Unidade?   @relation(fields: [unidadeId], references: [id])
+  veiculo     Veiculo      @relation(fields: [veiculoId], references: [id])
+  motorista   Motorista    @relation("motorista1", fields: [motoristaId], references: [id])
+  motorista2  Motorista?   @relation("motorista2", fields: [motorista2Id], references: [id])
+  unidade     Unidade?     @relation(fields: [unidadeId], references: [id])
+  agendamento Agendamento? @relation(fields: [agendamentoId], references: [id])
 
   @@index([veiculoId])
   @@index([motoristaId])
   @@index([motorista2Id])
   @@index([unidadeId])
+  @@index([agendamentoId])
 }
 
+/// Reserva/agendamento de veículo por unidade solicitante. Substitui a
+/// planilha mensal (linhas = veículos, colunas = dias) — a tela
+/// `/agendamentos` reconstrói essa visão a partir dos registros aqui.
+/// Status:
+///   - `aprovado` (default): reserva ativa; bloqueia o veículo no período.
+///   - `cancelado`: visível em "Canceladas" do mês, não bloqueia.
+///   - `lista_espera`: reserva sem garantia; pode sobrepor outras (não
+///     dispara conflito) e fica fora da grade principal.
+///   - `pendente` / `rejeitado`: legados, mantidos só para registros antigos.
+/// `unidadeId` é nullable para não quebrar dados pré-migração; o form novo
+/// exige unidade. `solicitante` é mantido por retrocompat e preenchido
+/// automaticamente com a sigla da unidade quando disponível.
 model Agendamento {
   id          String   @id @default(cuid())
   veiculoId   String
+  unidadeId   String?
   solicitante String
   motivo      String
+  observacao  String?
   dataInicio  DateTime
   dataFim     DateTime
-  status      String   @default("pendente") // pendente | aprovado | rejeitado | cancelado
+  status      String   @default("aprovado") // aprovado | cancelado | lista_espera | pendente (legado) | rejeitado (legado)
   criadoEm    DateTime @default(now())
 
-  veiculo Veiculo @relation(fields: [veiculoId], references: [id])
+  veiculo Veiculo  @relation(fields: [veiculoId], references: [id])
+  unidade Unidade? @relation(fields: [unidadeId], references: [id])
+  viagens Viagem[]
 
   @@index([veiculoId])
+  @@index([unidadeId])
+  @@index([dataInicio, dataFim])
 }
 
 model Manutencao {
   id            String    @id @default(cuid())
   veiculoId     String
-  tipo          String    // preventiva | corretiva
+  oficinaId     String?
+  tipo          String // preventiva | corretiva
   descricao     String
   dataEntrada   DateTime
   previsaoSaida DateTime?
@@ -204,13 +270,21 @@ model Manutencao {
   custoEstimado Float?
   valorTotal    Float?
   status        String    @default("aguardando") // aguardando | em_andamento | concluida | cancelada
-  criadoEm      DateTime  @default(now())
 
-  veiculo   Veiculo         @relation(fields: [veiculoId], references: [id])
+  // Rastreio Prime (terceirizada): marcações manuais enquanto a integração
+  // com o webservice não existe.
+  enviadaPrimeEm   DateTime?
+  retornoEfetivoEm DateTime?
+
+  criadoEm DateTime @default(now())
+
+  veiculo   Veiculo          @relation(fields: [veiculoId], references: [id])
+  oficina   Oficina?         @relation(fields: [oficinaId], references: [id])
   checklist ChecklistItem[]
   itens     ItemManutencao[]
 
   @@index([veiculoId])
+  @@index([oficinaId])
 }
 
 model ChecklistItem {
@@ -228,11 +302,60 @@ model ChecklistItem {
 model ItemManutencao {
   id           String  @id @default(cuid())
   manutencaoId String
-  servico      String
+  servico      String // texto livre mantido por retrocompatibilidade
   valor        Float   @default(0)
   observacao   String?
 
+  // Referências opcionais ao catálogo (texto livre ainda permitido)
+  servicoRefId String?
+  pecaId       String?
+
   manutencao Manutencao @relation(fields: [manutencaoId], references: [id], onDelete: Cascade)
+  servicoRef Servico?   @relation(fields: [servicoRefId], references: [id])
+  peca       Peca?      @relation(fields: [pecaId], references: [id])
 
   @@index([manutencaoId])
+  @@index([servicoRefId])
+  @@index([pecaId])
+}
+
+/// Oficina externa (Prime ou outras). Endereço fica como texto + link Google Maps.
+model Oficina {
+  id            String   @id @default(cuid())
+  nome          String
+  cnpj          String   @unique
+  whatsapp      String?
+  enderecoTexto String?
+  googleMapsUrl String?
+  ativa         Boolean  @default(true)
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  manutencoes Manutencao[]
+}
+
+/// Catálogo de serviços. `valorReferencia` é sugestão — não vincula o valor
+/// final cobrado numa OS (esse fica em ItemManutencao.valor).
+model Servico {
+  id              String   @id @default(cuid())
+  nome            String   @unique
+  descricao       String?
+  valorReferencia Float?
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+
+  itens ItemManutencao[]
+}
+
+/// Catálogo de peças.
+model Peca {
+  id              String   @id @default(cuid())
+  nome            String   @unique
+  codigo          String? // código do fabricante/fornecedor
+  unidade         String? // UN, L, KG, etc.
+  valorReferencia Float?
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+
+  itens ItemManutencao[]
 }

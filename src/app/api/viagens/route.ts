@@ -138,9 +138,30 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  // Se a viagem foi originada em um agendamento, valida que ele existe e
+  // bate com o veículo escolhido (proteção contra payload inconsistente).
+  if (body.agendamentoId) {
+    const agendamento = await prisma.agendamento.findUnique({
+      where: { id: body.agendamentoId },
+    });
+    if (!agendamento) {
+      return Response.json(
+        { error: "Agendamento informado não existe." },
+        { status: 400 }
+      );
+    }
+    if (agendamento.veiculoId !== body.veiculoId) {
+      return Response.json(
+        { error: "Agendamento é de outro veículo. Selecione novamente." },
+        { status: 400 }
+      );
+    }
+  }
+
   const viagem = await prisma.viagem.create({
     data: {
       veiculoId: body.veiculoId,
+      agendamentoId: body.agendamentoId || null,
       motoristaId: body.motoristaId,
       motorista2Id: body.motorista2Id || null,
       origem: body.origem,

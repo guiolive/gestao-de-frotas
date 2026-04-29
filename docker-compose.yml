@@ -1,0 +1,85 @@
+# docker-compose pra deploy num VPS único.
+#
+# Stack: app Next.js + Postgres 16 + Caddy (reverse proxy com HTTPS
+# automático via Let's Encrypt). Tudo numa rede privada; só Caddy
+# expõe portas (80/443) ao mundo.
+#
+# Uso (assumindo .env preenchido com DATABASE_URL apontando pro service
+# `db` interno e DOMAIN setado):
+#   docker compose up -d
+#   docker compose logs -f app
+#
+# Pra criar primeiro admin (depois que o app está saudável):
+#   docker compose exec app npx prisma db seed
+# (ou usar o /resetar-senha se já tiver um admin de seed)
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-gestao}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?precisa de POSTGRES_PASSWORD no .env}
+      POSTGRES_DB: ${POSTGRES_DB:-gestaofrota}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      # Backups locais (rotacionar em script externo / cron)
+      - ./backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-gestao} -d $${POSTGRES_DB:-gestaofrota}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-gestao}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-gestaofrota}
+      JWT_SECRET: ${JWT_SECRET:?precisa de JWT_SECRET no .env (32+ chars)}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      EMAIL_GESTOR_FROTA: ${EMAIL_GESTOR_FROTA:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    networks:
+      - internal
+    # Exposto só pra Caddy via rede interna; nada fica em 0.0.0.0
+    expose:
+      - "3000"
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      DOMAIN: ${DOMAIN:?precisa de DOMAIN no .env (ex.: gestao.dirad.ufg.br)}
+    networks:
+      - internal
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:
+
+networks:
+  internal:
+    driver: bridge

@@ -1,0 +1,34 @@
+# Caddy = reverse proxy + HTTPS automático (ACME/Let's Encrypt).
+# Em prod, exporta o domínio na env DOMAIN do docker-compose.
+#
+# Em dev local, troque {$DOMAIN} por `:80` pra ouvir HTTP sem TLS.
+
+{$DOMAIN} {
+	encode gzip zstd
+
+	# Headers de segurança redundantes — Next já manda os principais via
+	# next.config.mjs, mas Caddy garante que cheguem mesmo se o app errar.
+	header {
+		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		# Remove server fingerprinting
+		-Server
+	}
+
+	# Rate limit básico — proteção contra força bruta no /api/auth/login.
+	# (Plugin caddy-ratelimit não vem no Caddy oficial; implementamos rate
+	# limit no app via lib/rate-limit. Se quiser camada extra, instalar o
+	# plugin manualmente.)
+
+	reverse_proxy app:3000 {
+		# Repassa IP real pra logs e rate limit do app
+		header_up X-Real-IP {remote_host}
+	}
+
+	# Logs em formato JSON (struturado pra agregação)
+	log {
+		output stdout
+		format json
+	}
+}

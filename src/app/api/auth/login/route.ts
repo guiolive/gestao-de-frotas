@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       id: usuario.id,
       email: usuario.email,
       tipo: usuario.tipo,
+      setor: usuario.setor,
     });
 
     const response = NextResponse.json({
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
         nome: usuario.nome,
         email: usuario.email,
         tipo: usuario.tipo,
+        setor: usuario.setor,
         primeiroAcesso: usuario.primeiroAcesso,
       },
       requirePasswordChange: usuario.primeiroAcesso,

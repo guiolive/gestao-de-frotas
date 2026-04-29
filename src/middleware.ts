@@ -7,6 +7,8 @@ const PUBLIC_PATHS = [
   "/api/auth/login",
   "/api/auth/esqueci-senha",
   "/api/auth/resetar-senha",
+  // Healthcheck pro orquestrador — precisa responder sem token.
+  "/api/health",
 ];
 
 export async function middleware(request: NextRequest) {
@@ -54,6 +56,9 @@ export async function middleware(request: NextRequest) {
   requestHeaders.set("x-user-id", payload.id);
   requestHeaders.set("x-user-tipo", payload.tipo);
   requestHeaders.set("x-user-email", payload.email);
+  // Tokens emitidos antes da migration de setor não trazem o campo —
+  // fallback "AMBOS" garante que continuem podendo navegar normalmente.
+  requestHeaders.set("x-user-setor", payload.setor ?? "AMBOS");
 
   return NextResponse.next({
     request: { headers: requestHeaders },

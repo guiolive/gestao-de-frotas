@@ -13,7 +13,12 @@ if (process.env.JWT_SECRET.length < 32) {
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET);
 
-export async function gerarToken(payload: { id: string; email: string; tipo: string }): Promise<string> {
+export async function gerarToken(payload: {
+  id: string;
+  email: string;
+  tipo: string;
+  setor: string;
+}): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime("7d")
@@ -24,7 +29,15 @@ export async function gerarToken(payload: { id: string; email: string; tipo: str
 export async function verificarToken(token: string) {
   try {
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return payload as { id: string; email: string; tipo: string };
+    // `setor` é opcional para tokens emitidos antes da migration —
+    // tratado em runtime como "AMBOS" (default) pelo fallback nos
+    // chamadores.
+    return payload as {
+      id: string;
+      email: string;
+      tipo: string;
+      setor?: string;
+    };
   } catch {
     return null;
   }

@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { enviarEmailAlerta, enviarEmailManutencao } from "@/lib/email";
+import { calcularStatusBateria } from "@/lib/bateria";
 
 export async function POST() {
   // 1. Check KM-based alerts
@@ -86,6 +87,53 @@ export async function POST() {
     }
   }
 
+  // 3. Baterias ativas próximas do fim / vencidas
+  const baterias = await prisma.bateria.findMany({
+    where: { dataSubstituicao: null },
+    include: { veiculo: true },
+  });
+
+  const resultadosBateria: Array<{
+    bateriaId: string;
+    veiculo: string;
+    status: "alerta" | "vencida";
+    diasRestantes: number;
+    enviado: boolean;
+  }> = [];
+
+  if (emailGestor) {
+    for (const b of baterias) {
+      const st = calcularStatusBateria(b);
+      if (st.status === "ok") continue;
+
+      const descricao =
+        st.status === "vencida"
+          ? `Bateria vencida há ${Math.abs(st.diasRestantes)} dias (fim previsto ${st.fimPrevisto.toLocaleDateString("pt-BR")}).`
+          : `Bateria com ${st.diasRestantes} dias restantes (fim previsto ${st.fimPrevisto.toLocaleDateString("pt-BR")}).`;
+
+      const resultado = await enviarEmailManutencao({
+        para: emailGestor,
+        veiculo: {
+          placa: b.veiculo.placa,
+          modelo: b.veiculo.modelo,
+          marca: b.veiculo.marca,
+        },
+        tipo: "Bateria",
+        descricao,
+        previsaoSaida: st.fimPrevisto.toLocaleDateString("pt-BR"),
+        status: st.status.toUpperCase(),
+      });
+
+      resultadosBateria.push({
+        bateriaId: b.id,
+        veiculo: b.veiculo.placa,
+        status: st.status,
+        diasRestantes: st.diasRestantes,
+        enviado: resultado.success,
+      });
+    }
+  }
+
   return Response.json({
     km: {
       verificados: alertas.length,
@@ -96,6 +144,11 @@ export async function POST() {
       verificadas: manutencoesAtrasadas.length,
       alertasEnviados: resultadosManut.length,
       detalhes: resultadosManut,
+    },
+    bateria: {
+      verificadas: baterias.length,
+      alertasEnviados: resultadosBateria.length,
+      detalhes: resultadosBateria,
     },
   });
 }

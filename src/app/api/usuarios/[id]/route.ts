@@ -19,6 +19,7 @@ export async function GET(
       nome: true,
       email: true,
       tipo: true,
+      setor: true,
       ativo: true,
       matricula: true,
       primeiroAcesso: true,
@@ -67,6 +68,7 @@ export async function PUT(
     data: {
       ...(data.nome !== undefined ? { nome: data.nome } : {}),
       ...(data.tipo !== undefined ? { tipo: data.tipo } : {}),
+      ...(data.setor !== undefined ? { setor: data.setor } : {}),
       ...(data.matricula !== undefined ? { matricula: data.matricula } : {}),
       ...(data.ativo !== undefined ? { ativo: data.ativo } : {}),
     },
@@ -75,6 +77,7 @@ export async function PUT(
       nome: true,
       email: true,
       tipo: true,
+      setor: true,
       ativo: true,
       matricula: true,
       primeiroAcesso: true,

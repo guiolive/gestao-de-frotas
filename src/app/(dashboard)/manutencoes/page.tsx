@@ -5,7 +5,7 @@ import StatusBadge from "@/components/StatusBadge";
 export const dynamic = "force-dynamic";
 
 function formatCurrency(value: number | null | undefined): string {
-  if (value == null || value === 0) return "\u2014";
+  if (value == null || value === 0) return "—";
   return `R$ ${value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
@@ -31,11 +31,22 @@ export default async function ManutencoesPage({
     0
   );
 
+  // Contagem de OS Prime em atraso (independente dos filtros da listagem,
+  // pra sinalizar de forma estável o backlog.)
+  const hoje = new Date();
+  const atrasadas = await prisma.manutencao.count({
+    where: {
+      enviadaPrimeEm: { not: null },
+      retornoEfetivoEm: null,
+      previsaoSaida: { lt: hoje },
+    },
+  });
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Manuten\u00e7\u00f5es</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Manutenções</h1>
           <p className="text-sm text-gray-500 mt-1">
             Custo total:{" "}
             <span className="font-semibold text-gray-700">
@@ -43,12 +54,30 @@ export default async function ManutencoesPage({
             </span>
           </p>
         </div>
-        <Link
-          href="/manutencoes/nova"
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          + Nova Manuten\u00e7\u00e3o
-        </Link>
+        <div className="flex gap-3 items-center">
+          <Link
+            href="/manutencoes/prime"
+            title="Acompanhar OS enviadas para a oficina terceirizada Prime"
+            className={`px-4 py-2 rounded-lg transition-colors text-sm font-medium ${
+              atrasadas > 0
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            }`}
+          >
+            OS na Prime
+            {atrasadas > 0 && (
+              <span className="ml-2 inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-white text-red-700 text-xs font-bold">
+                {atrasadas}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/manutencoes/nova"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            + Nova Manutenção
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}
@@ -75,7 +104,7 @@ export default async function ManutencoesPage({
             <option value="">Todos</option>
             <option value="aguardando">Aguardando</option>
             <option value="em_andamento">Em Andamento</option>
-            <option value="concluida">Conclu\u00edda</option>
+            <option value="concluida">Concluída</option>
             <option value="cancelada">Cancelada</option>
           </select>
         </div>
@@ -100,22 +129,22 @@ export default async function ManutencoesPage({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ve\u00edculo</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Veículo</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descri\u00e7\u00e3o</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Descrição</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entrada</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estimado</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Custo Real</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Problemas</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">A\u00e7\u00f5es</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ações</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {manutencoes.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-6 py-8 text-center text-gray-500">
-                    Nenhuma manuten\u00e7\u00e3o registrada.
+                    Nenhuma manutenção registrada.
                   </td>
                 </tr>
               )}
@@ -146,14 +175,14 @@ export default async function ManutencoesPage({
                       {new Date(m.dataEntrada).toLocaleDateString("pt-BR")}
                     </td>
                     <td className="px-4 py-3 text-gray-500 text-sm">
-                      {m.custoEstimado ? formatCurrency(m.custoEstimado) : "\u2014"}
+                      {m.custoEstimado ? formatCurrency(m.custoEstimado) : "—"}
                     </td>
                     <td
                       className={`px-4 py-3 font-medium text-sm ${
                         estourou ? "text-red-600" : "text-gray-900"
                       }`}
                     >
-                      {custoReal > 0 ? formatCurrency(custoReal) : "\u2014"}
+                      {custoReal > 0 ? formatCurrency(custoReal) : "—"}
                     </td>
                     <td className="px-4 py-3">
                       <span

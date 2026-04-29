@@ -66,6 +66,10 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // `standalone` gera `.next/standalone/` com TUDO que o server precisa
+  // (incluindo `node_modules` trimmed). É o formato que o Dockerfile
+  // multi-stage copia — imagem final fica ~150MB em vez de ~1GB.
+  output: "standalone",
   // Remove header `X-Powered-By: Next.js` (evita fingerprinting)
   poweredByHeader: false,
   experimental: {

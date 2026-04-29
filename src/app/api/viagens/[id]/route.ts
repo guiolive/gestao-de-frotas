@@ -15,6 +15,7 @@ export async function GET(
       motorista: true,
       motorista2: true,
       unidade: true,
+      agendamento: { include: { unidade: true } },
     },
   });
 
@@ -49,6 +50,7 @@ export async function PUT(
   const data: Record<string, unknown> = {};
 
   if (body.veiculoId !== undefined) data.veiculoId = body.veiculoId;
+  if (body.agendamentoId !== undefined) data.agendamentoId = body.agendamentoId || null;
   if (body.motoristaId !== undefined) data.motoristaId = body.motoristaId;
   if (body.motorista2Id !== undefined) data.motorista2Id = body.motorista2Id || null;
   if (body.origem !== undefined) data.origem = body.origem;

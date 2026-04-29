@@ -2,6 +2,8 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
 import { notFound } from "next/navigation";
+import { calcularIndicadoresFipe, THRESHOLD_ANTIECONOMICO_PCT } from "@/lib/fipe";
+import { calcularStatusBateria } from "@/lib/bateria";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,11 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
     include: {
       imagens: true,
       alertasKm: { where: { ativo: true } },
+      baterias: {
+        where: { dataSubstituicao: null },
+        orderBy: { dataInstalacao: "desc" },
+        take: 1,
+      },
       manutencoes: {
         include: { itens: true },
         orderBy: { criadoEm: "desc" },
@@ -43,6 +50,22 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
     (acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0),
     0
   );
+  // Custo dos últimos 12 meses (usa dataEntrada da OS)
+  const umAnoAtras = new Date();
+  umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
+  const custo12m = veiculo.manutencoes
+    .filter((m) => new Date(m.dataEntrada) >= umAnoAtras)
+    .reduce((acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0), 0);
+
+  const indicFipe = calcularIndicadoresFipe({
+    valorFipe: veiculo.valorFipe,
+    custoAcumulado: custoTotalManutencao,
+    custo12m,
+  });
+
+  const bateriaAtiva = veiculo.baterias[0] || null;
+  const bateriaStatus = bateriaAtiva ? calcularStatusBateria(bateriaAtiva) : null;
+
   const diasParado = veiculo.manutencoes.reduce((acc, m) => acc + m.previsaoDias, 0);
   const totalViagens = veiculo.viagens.length;
   const kmRodado = veiculo.viagens.reduce((acc, v) => {
@@ -133,29 +156,201 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
             <p className="text-xs text-gray-400">R$ {custoPorKm.toFixed(2)}/km</p>
           )}
         </div>
-        <div
-          className={`rounded-lg shadow p-4 ${
-            percentualValor > 60
-              ? "bg-red-50 border border-red-200"
-              : percentualValor > 30
-              ? "bg-amber-50 border border-amber-200"
-              : "bg-green-50 border border-green-200"
-          }`}
-        >
-          <p className="text-sm text-gray-500">% do Valor</p>
-          <p
-            className={`text-xl font-bold ${
+        {/* Indicador de % do valor de aquisição — só aparece se NÃO temos
+            valor FIPE (caso contrário, o card "FIPE & Antieconomicidade"
+            abaixo é a fonte de verdade e o threshold é 40%). */}
+        {!veiculo.valorFipe && valorVeiculo > 0 && (
+          <div
+            className={`rounded-lg shadow p-4 ${
               percentualValor > 60
-                ? "text-red-700"
+                ? "bg-red-50 border border-red-200"
                 : percentualValor > 30
-                ? "text-amber-700"
-                : "text-green-700"
+                ? "bg-amber-50 border border-amber-200"
+                : "bg-green-50 border border-green-200"
             }`}
           >
-            {percentualValor.toFixed(1)}%
-          </p>
-          <p className="text-xs text-gray-500 mt-1">{percentualValor.toFixed(1)}% do valor do veículo</p>
+            <p className="text-sm text-gray-500">% do Valor</p>
+            <p
+              className={`text-xl font-bold ${
+                percentualValor > 60
+                  ? "text-red-700"
+                  : percentualValor > 30
+                  ? "text-amber-700"
+                  : "text-green-700"
+              }`}
+            >
+              {percentualValor.toFixed(1)}%
+            </p>
+            <p className="text-xs text-gray-500 mt-1">% do valor de aquisição (FIPE não consultado)</p>
+          </div>
+        )}
+      </div>
+
+      {/* FIPE & Antieconômico */}
+      <div
+        className={`rounded-lg shadow p-6 mb-6 border ${
+          indicFipe.antieconomico
+            ? "bg-red-50 border-red-300"
+            : "bg-white border-gray-200"
+        }`}
+      >
+        <div className="flex justify-between items-start mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">FIPE & Antieconomicidade</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Regra: ≥ {THRESHOLD_ANTIECONOMICO_PCT}% do valor FIPE em qualquer janela = antieconômico
+            </p>
+          </div>
+          {indicFipe.antieconomico && (
+            <span className="bg-red-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide">
+              Antieconômico
+            </span>
+          )}
         </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <p className="text-sm text-gray-500">Valor FIPE</p>
+            <p className="text-xl font-bold text-gray-900">
+              {veiculo.valorFipe
+                ? `R$ ${veiculo.valorFipe.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                : "—"}
+            </p>
+            {veiculo.fipeAtualizadoEm && (
+              <p className="text-xs text-gray-400 mt-1">
+                atualizado em {new Date(veiculo.fipeAtualizadoEm).toLocaleDateString("pt-BR")}
+              </p>
+            )}
+            {!veiculo.valorFipe && (
+              <p className="text-xs text-amber-600 mt-1">
+                Consulte na aba Editar → Consultar FIPE.
+              </p>
+            )}
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Custo acumulado / FIPE</p>
+            <p
+              className={`text-xl font-bold ${
+                indicFipe.pctAcumulado == null
+                  ? "text-gray-400"
+                  : indicFipe.pctAcumulado >= THRESHOLD_ANTIECONOMICO_PCT
+                    ? "text-red-700"
+                    : "text-gray-900"
+              }`}
+            >
+              {indicFipe.pctAcumulado == null ? "—" : `${indicFipe.pctAcumulado.toFixed(1)}%`}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              R$ {custoTotalManutencao.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Custo últ. 12 meses / FIPE</p>
+            <p
+              className={`text-xl font-bold ${
+                indicFipe.pct12m == null
+                  ? "text-gray-400"
+                  : indicFipe.pct12m >= THRESHOLD_ANTIECONOMICO_PCT
+                    ? "text-red-700"
+                    : "text-gray-900"
+              }`}
+            >
+              {indicFipe.pct12m == null ? "—" : `${indicFipe.pct12m.toFixed(1)}%`}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              R$ {custo12m.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Bateria */}
+      <div
+        className={`rounded-lg shadow p-6 mb-6 border ${
+          bateriaStatus?.status === "vencida"
+            ? "bg-red-50 border-red-300"
+            : bateriaStatus?.status === "alerta"
+              ? "bg-yellow-50 border-yellow-300"
+              : "bg-white border-gray-200"
+        }`}
+      >
+        <div className="flex items-start justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Bateria</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Previsão por data de instalação + vida útil.
+            </p>
+          </div>
+          {bateriaStatus && (
+            <span
+              className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide ${
+                bateriaStatus.status === "vencida"
+                  ? "bg-red-600 text-white"
+                  : bateriaStatus.status === "alerta"
+                    ? "bg-yellow-500 text-white"
+                    : "bg-emerald-600 text-white"
+              }`}
+            >
+              {bateriaStatus.status === "vencida"
+                ? "Vencida"
+                : bateriaStatus.status === "alerta"
+                  ? "Atenção"
+                  : "OK"}
+            </span>
+          )}
+        </div>
+
+        {!bateriaAtiva ? (
+          <p className="text-sm text-gray-500">
+            Nenhuma bateria cadastrada.{" "}
+            <Link href={`/veiculos/${id}/editar`} className="text-blue-600 hover:text-blue-800">
+              Registrar →
+            </Link>
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Instalada em</p>
+              <p className="text-lg font-bold text-gray-900">
+                {new Date(bateriaAtiva.dataInstalacao).toLocaleDateString("pt-BR")}
+              </p>
+              {bateriaAtiva.fabricante && (
+                <p className="text-xs text-gray-400 mt-1">
+                  {bateriaAtiva.fabricante}
+                  {bateriaAtiva.amperagem ? ` · ${bateriaAtiva.amperagem}Ah` : ""}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Fim previsto</p>
+              <p className="text-lg font-bold text-gray-900">
+                {bateriaStatus!.fimPrevisto.toLocaleDateString("pt-BR")}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Vida útil {bateriaAtiva.vidaUtilMeses} meses
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Dias restantes</p>
+              <p
+                className={`text-lg font-bold ${
+                  bateriaStatus!.status === "vencida"
+                    ? "text-red-700"
+                    : bateriaStatus!.status === "alerta"
+                      ? "text-yellow-700"
+                      : "text-gray-900"
+                }`}
+              >
+                {bateriaStatus!.diasRestantes <= 0
+                  ? `${Math.abs(bateriaStatus!.diasRestantes)} d além`
+                  : `${bateriaStatus!.diasRestantes} d`}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">
+                Alerta {bateriaAtiva.alertaAntesDeDias}d antes
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Vehicle info card */}
@@ -187,7 +382,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
             <p className="font-medium text-gray-900 mt-1">{veiculo.quilometragem.toLocaleString("pt-BR")} km</p>
           </div>
           <div>
-            <span className="text-gray-500">Valor</span>
+            <span className="text-gray-500">Valor aquisição</span>
             <p className="font-medium text-gray-900 mt-1">
               {valorVeiculo > 0
                 ? `R$ ${valorVeiculo.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
@@ -197,6 +392,24 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
           <div>
             <span className="text-gray-500">Status</span>
             <div className="mt-1"><StatusBadge status={veiculo.status} /></div>
+          </div>
+          <div>
+            <span className="text-gray-500">Renavam</span>
+            <p className="font-medium text-gray-900 mt-1">{veiculo.renavam || "--"}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Chassi</span>
+            <p className="font-medium text-gray-900 mt-1">{veiculo.chassi || "--"}</p>
+          </div>
+          <div>
+            <span className="text-gray-500">Combustível</span>
+            <p className="font-medium text-gray-900 mt-1 capitalize">
+              {veiculo.combustivel || "--"}
+            </p>
+          </div>
+          <div>
+            <span className="text-gray-500">Código FIPE</span>
+            <p className="font-medium text-gray-900 mt-1">{veiculo.fipeCodigo || "--"}</p>
           </div>
         </div>
       </div>

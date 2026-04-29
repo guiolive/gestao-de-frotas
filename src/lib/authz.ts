@@ -16,11 +16,13 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export type UsuarioTipo = "OPERADOR" | "ADMINISTRADOR";
+export type UsuarioSetor = "TRANSPORTE" | "MANUTENCAO" | "AMBOS";
 
 export type AuthUser = {
   id: string;
   email: string;
   tipo: UsuarioTipo;
+  setor: UsuarioSetor;
 };
 
 type AuthResult = [AuthUser, null] | [null, NextResponse];
@@ -35,6 +37,7 @@ export function requireAuth(request: NextRequest): AuthResult {
   const id = request.headers.get("x-user-id");
   const email = request.headers.get("x-user-email");
   const tipo = request.headers.get("x-user-tipo");
+  const setor = request.headers.get("x-user-setor") ?? "AMBOS";
 
   if (!id || !email || !tipo) {
     return [
@@ -43,7 +46,15 @@ export function requireAuth(request: NextRequest): AuthResult {
     ];
   }
 
-  return [{ id, email, tipo: tipo as UsuarioTipo }, null];
+  return [
+    {
+      id,
+      email,
+      tipo: tipo as UsuarioTipo,
+      setor: setor as UsuarioSetor,
+    },
+    null,
+  ];
 }
 
 /**

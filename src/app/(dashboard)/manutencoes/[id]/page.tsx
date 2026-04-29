@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
 
@@ -15,18 +16,25 @@ interface Manutencao {
   id: string; veiculoId: string; tipo: string; descricao: string;
   dataEntrada: string; previsaoDias: number; previsaoSaida: string | null;
   custoEstimado: number | null; valorTotal: number | null; status: string;
+  oficinaId: string | null;
+  enviadaPrimeEm: string | null;
+  retornoEfetivoEm: string | null;
   veiculo: { placa: string; modelo: string };
   checklist: ChecklistItem[]; itens: ItemManutencao[];
 }
+interface OficinaSelect { id: string; nome: string; cnpj: string; ativa: boolean; }
 
 export default function DetalhesManutencaoPage() {
   const router = useRouter();
   const params = useParams();
   const [manutencao, setManutencao] = useState<Manutencao | null>(null);
   const [loading, setLoading] = useState(false);
+  const [oficinas, setOficinas] = useState<OficinaSelect[]>([]);
+  const [primeMsg, setPrimeMsg] = useState("");
 
   useEffect(() => {
     fetch(`/api/manutencoes/${params.id}`).then((r) => r.json()).then(setManutencao);
+    fetch(`/api/oficinas?ativa=true`).then((r) => r.json()).then(setOficinas);
   }, [params.id]);
 
   async function atualizarStatus(status: string) {
@@ -45,10 +53,39 @@ export default function DetalhesManutencaoPage() {
     setLoading(false);
   }
 
+  async function atualizarPrime(payload: Record<string, unknown>, msg: string) {
+    setLoading(true);
+    setPrimeMsg("");
+    const res = await fetch(`/api/manutencoes/${params.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      setPrimeMsg("Erro ao atualizar.");
+    } else {
+      setPrimeMsg(msg);
+      const novo = await fetch(`/api/manutencoes/${params.id}`);
+      setManutencao(await novo.json());
+    }
+    setLoading(false);
+  }
+
   if (!manutencao) return <div className="text-gray-500">Carregando...</div>;
 
   const problemas = manutencao.checklist.filter((c) => c.temProblema);
   const valorTotalItens = manutencao.itens.reduce((acc, i) => acc + i.valor, 0);
+
+  // Status Prime / atraso
+  const hoje = new Date();
+  const previsao = manutencao.previsaoSaida ? new Date(manutencao.previsaoSaida) : null;
+  const enviada = !!manutencao.enviadaPrimeEm;
+  const retornou = !!manutencao.retornoEfetivoEm;
+  const emAtraso = enviada && !retornou && previsao && previsao < hoje;
+  const diasAtraso = emAtraso && previsao
+    ? Math.floor((hoje.getTime() - previsao.getTime()) / 86400000)
+    : 0;
+  const oficinaAtual = oficinas.find((o) => o.id === manutencao.oficinaId) || null;
 
   return (
     <div className="max-w-3xl">
@@ -125,6 +162,153 @@ export default function DetalhesManutencaoPage() {
               </button>
             </div>
           )}
+        </div>
+
+        {/* Prime / Oficina */}
+        <div
+          className={`bg-white rounded-lg shadow p-6 border ${
+            emAtraso ? "border-red-300 bg-red-50/30" : "border-gray-200"
+          }`}
+        >
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-800">Oficina / Prime</h2>
+              <p className="text-xs text-gray-500 mt-1">
+                Rastreio manual. Integração com webservice da Prime pendente.
+              </p>
+            </div>
+            <span
+              className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide ${
+                retornou
+                  ? "bg-emerald-600 text-white"
+                  : emAtraso
+                    ? "bg-red-600 text-white"
+                    : enviada
+                      ? "bg-blue-600 text-white"
+                      : "bg-gray-300 text-gray-700"
+              }`}
+            >
+              {retornou
+                ? "Retornou"
+                : emAtraso
+                  ? `${diasAtraso}d em atraso`
+                  : enviada
+                    ? "Em Prime"
+                    : "Não enviada"}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+            <div>
+              <span className="text-gray-500">Oficina</span>
+              <p className="font-medium mt-1">{oficinaAtual ? oficinaAtual.nome : "—"}</p>
+              {oficinaAtual && (
+                <Link
+                  href={`/oficinas/${oficinaAtual.id}`}
+                  className="text-xs text-blue-600 hover:text-blue-800"
+                >
+                  Ver oficina ↗
+                </Link>
+              )}
+            </div>
+            <div>
+              <span className="text-gray-500">Enviada para Prime</span>
+              <p className="font-medium mt-1">
+                {manutencao.enviadaPrimeEm
+                  ? new Date(manutencao.enviadaPrimeEm).toLocaleDateString("pt-BR")
+                  : "—"}
+              </p>
+            </div>
+            <div>
+              <span className="text-gray-500">Retorno efetivo</span>
+              <p className="font-medium mt-1">
+                {manutencao.retornoEfetivoEm
+                  ? new Date(manutencao.retornoEfetivoEm).toLocaleDateString("pt-BR")
+                  : "—"}
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-4 border-t">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Vincular oficina
+              </label>
+              <select
+                value={manutencao.oficinaId || ""}
+                onChange={(e) =>
+                  atualizarPrime(
+                    { oficinaId: e.target.value || null },
+                    "Oficina atualizada."
+                  )
+                }
+                disabled={loading}
+                className="w-full md:w-96 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">— sem oficina —</option>
+                {oficinas.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              {!enviada && (
+                <button
+                  onClick={() =>
+                    atualizarPrime(
+                      { enviadaPrimeEm: new Date().toISOString() },
+                      "Marcada como enviada para Prime."
+                    )
+                  }
+                  disabled={loading || !manutencao.oficinaId}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  title={!manutencao.oficinaId ? "Vincule uma oficina primeiro" : ""}
+                >
+                  Marcar enviada para Prime
+                </button>
+              )}
+              {enviada && !retornou && (
+                <button
+                  onClick={() =>
+                    atualizarPrime(
+                      { retornoEfetivoEm: new Date().toISOString() },
+                      "Retorno do veículo registrado."
+                    )
+                  }
+                  disabled={loading}
+                  className="bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                >
+                  Marcar retorno efetivo
+                </button>
+              )}
+              {(enviada || retornou) && (
+                <button
+                  onClick={() =>
+                    atualizarPrime(
+                      { enviadaPrimeEm: null, retornoEfetivoEm: null },
+                      "Marcações Prime limpas."
+                    )
+                  }
+                  disabled={loading}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                >
+                  Limpar Prime
+                </button>
+              )}
+            </div>
+
+            {primeMsg && (
+              <p className="text-sm text-emerald-700">{primeMsg}</p>
+            )}
+            {emAtraso && (
+              <p className="text-sm text-red-700 font-medium">
+                Veículo está {diasAtraso} dias além da previsão de saída.
+              </p>
+            )}
+          </div>
         </div>
 
         {/* Itens de Serviço */}
