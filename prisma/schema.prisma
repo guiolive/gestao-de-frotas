@@ -276,6 +276,10 @@ model Manutencao {
   enviadaPrimeEm   DateTime?
   retornoEfetivoEm DateTime?
 
+  // Marcado pelo PUT quando previsaoSaida muda — alimenta o feed de
+  // "novidades da oficina" no painel de transporte.
+  previsaoSaidaAtualizadaEm DateTime?
+
   criadoEm DateTime @default(now())
 
   veiculo   Veiculo          @relation(fields: [veiculoId], references: [id])
@@ -285,6 +289,8 @@ model Manutencao {
 
   @@index([veiculoId])
   @@index([oficinaId])
+  @@index([retornoEfetivoEm])
+  @@index([previsaoSaidaAtualizadaEm])
 }
 
 model ChecklistItem {

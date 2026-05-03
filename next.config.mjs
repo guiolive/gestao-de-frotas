@@ -10,9 +10,16 @@ const isProd = process.env.NODE_ENV === "production";
  *
  * Em dev a CSP fica completamente aberta pra não quebrar HMR.
  */
+// CSP de produção. `'unsafe-inline'` em script-src é necessário porque o
+// Next 14 App Router injeta scripts inline pra hidratação (boot do React,
+// passing de RSC payload, etc.). O ideal a longo prazo é gerar um nonce
+// dinâmico no middleware e usar `'strict-dynamic'` — ver doc oficial:
+// https://nextjs.org/docs/app/building-your-application/configuring/content-security-policy
+// Pra essa fase de piloto, `'unsafe-inline'` resolve sem reescrever o
+// pipeline de auth/middleware.
 const cspProd = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

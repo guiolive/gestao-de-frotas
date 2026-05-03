@@ -18,6 +18,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verificarToken } from "@/lib/jwt";
+import { diasDoMes, inicioDoMes, fimDoMes } from "@/lib/calendario";
 import DashboardManutencao from "@/components/dashboard/DashboardManutencao";
 import DashboardTransporte from "@/components/dashboard/DashboardTransporte";
 import DashboardViewSwitcher from "@/components/dashboard/DashboardViewSwitcher";
@@ -218,37 +219,35 @@ async function carregarDadosManutencao() {
 }
 
 async function carregarDadosTransporte() {
+  const hoje = new Date();
+  const ano = hoje.getFullYear();
+  const mes = hoje.getMonth() + 1;
+  const inicioMes = inicioDoMes(ano, mes);
+  const fimMes = fimDoMes(ano, mes);
+  const diasMes = diasDoMes(ano, mes);
   const inicioHoje = new Date();
   inicioHoje.setHours(0, 0, 0, 0);
-  const fimHoje = new Date(inicioHoje);
-  fimHoje.setHours(23, 59, 59, 999);
-  const em7dias = new Date(inicioHoje);
-  em7dias.setDate(em7dias.getDate() + 7);
+  const seteDiasAtras = new Date(inicioHoje);
+  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
 
   const [
-    totalVeiculos,
-    veiculosDisponiveis,
-    veiculosEmUso,
-    veiculosManutencao,
-    veiculosInativos,
-    agendamentosHoje,
+    veiculosGrade,
+    agendamentosMes,
     viagensEmAndamento,
-    retornosPrevistosHoje,
     listaEspera,
-    proximosAgendamentos,
+    manutencoesNovidades,
   ] = await Promise.all([
-    prisma.veiculo.count(),
-    prisma.veiculo.count({ where: { status: "disponivel" } }),
-    prisma.veiculo.count({ where: { status: "em_uso" } }),
-    prisma.veiculo.count({ where: { status: "manutencao" } }),
-    prisma.veiculo.count({ where: { status: "inativo" } }),
-    // Agendamentos cujo intervalo cobre algum momento de hoje
+    prisma.veiculo.findMany({
+      where: { status: { not: "inativo" } },
+      orderBy: [{ tipo: "asc" }, { placa: "asc" }],
+    }),
+    // Agendamentos do mês corrente que pintam a grade.
     prisma.agendamento.findMany({
       where: {
         status: { in: ["aprovado", "pendente"] },
         AND: [
-          { dataInicio: { lte: fimHoje } },
-          { dataFim: { gte: inicioHoje } },
+          { dataInicio: { lte: fimMes } },
+          { dataFim: { gte: inicioMes } },
         ],
       },
       orderBy: { dataInicio: "asc" },
@@ -259,43 +258,35 @@ async function carregarDadosTransporte() {
       orderBy: { dataSaida: "asc" },
       include: { veiculo: true, motorista: true },
     }),
-    // Retornos previstos hoje: viagens com dataRetorno hoje OU viagens
-    // sem dataRetorno mas em andamento (saída foi hoje ou antes).
-    prisma.viagem.findMany({
-      where: {
-        status: { in: ["em_andamento", "agendada"] },
-        dataRetorno: { gte: inicioHoje, lte: fimHoje },
-      },
-      orderBy: { dataRetorno: "asc" },
-      include: { veiculo: true, motorista: true },
-    }),
     prisma.agendamento.findMany({
       where: { status: "lista_espera" },
       orderBy: { dataInicio: "asc" },
       include: { veiculo: true, unidade: true },
     }),
-    prisma.agendamento.findMany({
+    // Novidades da oficina: manutenções que (a) tiveram retorno efetivo nos
+    // últimos 7 dias OU (b) tiveram a previsão de saída atualizada nos
+    // últimos 7 dias. O componente decide qual evento exibir por item.
+    prisma.manutencao.findMany({
       where: {
-        status: { in: ["aprovado", "pendente"] },
-        dataInicio: { gt: fimHoje, lte: em7dias },
+        OR: [
+          { retornoEfetivoEm: { gte: seteDiasAtras } },
+          { previsaoSaidaAtualizadaEm: { gte: seteDiasAtras } },
+        ],
       },
-      orderBy: { dataInicio: "asc" },
-      take: 12,
-      include: { veiculo: true, unidade: true },
+      include: { veiculo: true },
+      take: 8,
     }),
   ]);
 
   return {
-    totalVeiculos,
-    veiculosDisponiveis,
-    veiculosEmUso,
-    veiculosManutencao,
-    veiculosInativos,
-    agendamentosHoje,
+    veiculosGrade,
+    diasMes,
+    agendamentosMes,
+    ano,
+    mes,
     viagensEmAndamento,
-    retornosPrevistosHoje,
     listaEspera,
-    proximosAgendamentos,
+    manutencoesNovidades,
   };
 }
 
