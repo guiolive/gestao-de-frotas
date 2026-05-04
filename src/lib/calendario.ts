@@ -78,6 +78,24 @@ export function mesProximo(ano: number, mes: number): { ano: number; mes: number
 }
 
 /**
+ * "há 5 min", "há 2 h", "há 3 d" — tempo relativo curto, sem libs.
+ * Para datas no futuro retorna "agora" (caso de borda; o feed só usa passado).
+ */
+export function tempoRelativo(date: Date | string, agora: Date = new Date()): string {
+  const dt = typeof date === "string" ? new Date(date) : date;
+  const diffMs = agora.getTime() - dt.getTime();
+  if (diffMs < 60_000) return "agora";
+  const min = Math.floor(diffMs / 60_000);
+  if (min < 60) return `há ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `há ${h} h`;
+  const d = Math.floor(h / 24);
+  if (d < 30) return `há ${d} d`;
+  const meses = Math.floor(d / 30);
+  return `há ${meses} mês${meses > 1 ? "es" : ""}`;
+}
+
+/**
  * Verifica se um agendamento (intervalo [inicio, fim]) cobre um dia
  * específico (dia inteiro). Usado para pintar células.
  */

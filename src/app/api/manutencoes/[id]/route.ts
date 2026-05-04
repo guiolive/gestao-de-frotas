@@ -45,7 +45,17 @@ export async function PUT(
   if (body.tipo !== undefined) data.tipo = body.tipo;
   if (body.descricao !== undefined) data.descricao = body.descricao;
   if (body.dataEntrada !== undefined) data.dataEntrada = new Date(body.dataEntrada);
-  if (body.previsaoSaida !== undefined) data.previsaoSaida = body.previsaoSaida ? new Date(body.previsaoSaida) : null;
+  if (body.previsaoSaida !== undefined) {
+    const novaPrevisao = body.previsaoSaida ? new Date(body.previsaoSaida) : null;
+    data.previsaoSaida = novaPrevisao;
+    // Marca o timestamp da mudança quando o valor difere do atual — alimenta
+    // o feed de "novidades da oficina" no painel de transporte.
+    const atualMs = current.previsaoSaida ? new Date(current.previsaoSaida).getTime() : null;
+    const novaMs = novaPrevisao ? novaPrevisao.getTime() : null;
+    if (atualMs !== novaMs) {
+      data.previsaoSaidaAtualizadaEm = new Date();
+    }
+  }
   if (body.previsaoDias !== undefined) data.previsaoDias = Number(body.previsaoDias) || 0;
   if (body.custoEstimado !== undefined) data.custoEstimado = body.custoEstimado ? Number(body.custoEstimado) : null;
   if (body.status !== undefined) data.status = body.status;
