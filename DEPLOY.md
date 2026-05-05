@@ -157,5 +157,29 @@ Esperado se você trocou `JWT_SECRET`. Tokens antigos ficam inválidos.
 ## Caminhos alternativos (se Docker no VPS não for opção)
 
 - **Servidor UFG (CERCOMP/CGTI)**: pedir VM Linux, instalar Docker, mesmo procedimento. Vantagem: dado público fica em ambiente da UFG (LGPD mais limpo).
-- **Vercel + Postgres externo**: app na Vercel, DB no Neon/Railway. Rápido, mas dado fora do país — verificar se LGPD/política UFG permite.
+- **Vercel + Postgres externo**: app na Vercel, DB no Neon. Rápido, mas dado fora do país — verificar se LGPD/política UFG permite. Detalhes na próxima seção.
 - **Kubernetes**: docker-compose já é referência fácil de portar (deployments + secret + service). Por enquanto, overkill.
+
+## Vercel + Neon (ambiente atual de piloto)
+
+Hoje o ambiente de demo roda na Vercel com Postgres no Neon. Diferenças importantes em relação ao Docker:
+
+- **Migrations rodam no build, não no startup.** O script `build` do `package.json` é `prisma migrate deploy && next build` — toda vez que a Vercel faz deploy, ela aplica migrations pendentes antes de buildar. Se a migration falhar, o deploy quebra (comportamento desejado: melhor falhar do que subir código contra schema antigo).
+- **`DATABASE_URL` aponta pro pooler do Neon** (`...-pooler.<region>.aws.neon.tech`). Pra rodar `prisma migrate deploy` localmente contra prod (emergência), puxe as variáveis com `vercel env pull`.
+- **Sem entrypoint custom**: a Vercel não tem o equivalente ao `docker-entrypoint.sh`. Qualquer setup que precise rodar antes do app subir (migrations, seed, etc.) tem que entrar no `build` ou ser disparado manualmente.
+
+Comandos úteis:
+
+```bash
+# Listar deploys
+vercel ls --scope <team>
+
+# Ver logs runtime do último deploy
+vercel logs <deployment-url> --no-follow --level error -x
+
+# Aplicar migration manualmente em emergência
+vercel env pull .env.production.tmp --environment=production
+DATABASE_URL=$(grep ^DATABASE_URL .env.production.tmp | cut -d= -f2- | tr -d '"' | sed 's/\\n$//') \
+  npx prisma migrate deploy
+rm .env.production.tmp
+```
