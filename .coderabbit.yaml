@@ -22,6 +22,28 @@ reviews:
     - "!src/generated/**"
 
   path_instructions:
+    - path: "**"
+      instructions: |
+        Contexto de domínio (vale pra qualquer arquivo deste repo):
+
+        - Sistema da Diretoria de Logística da UFG. Usuários primários:
+          Coordenador de Manutenção (CMAN) e Coordenador de Transporte.
+          Substitui processo manual papel→Forms→Prime.
+        - OS de manutenção SEMPRE nasce com status "pendente revisão CMAN".
+          Motoristas antigos preenchem em papel; alguém digitaliza depois.
+          Não criar OS já aprovada nem pular esse status.
+        - Veículo com FIPE ≥ 40% de custo acumulado de manutenção é
+          classificado como "antieconômico". Esse limiar é regra de negócio,
+          não constante mágica — qualquer mudança precisa estar documentada.
+        - Itens de farol e palhetas FICAM FORA da preventiva (são consumíveis
+          sob demanda). Não incluir em alertas de KM nem em rotinas de
+          manutenção preventiva automática.
+        - Todo veículo em manutenção deve inativar automaticamente
+          (status='manutencao' ou 'inativo') — não fica "disponível".
+        - LGPD: dados de motorista (CPF, CNH, telefone) e usuários
+          (e-mail @ufg.br) são pessoais. Aponte qualquer log/dump/response
+          que exponha esses campos sem necessidade.
+
     - path: "prisma/migrations/**"
       instructions: |
         Migrations são imutáveis depois de aplicadas em produção. Aponte:
@@ -51,37 +73,6 @@ reviews:
       instructions: |
         Funções utilitárias; sem efeito colateral em import. Não faça query
         Prisma fora de routes/server components.
-
-reviews_instructions:
-  # Regras de negócio do Gestão de Frota — usar como contexto em revisões.
-  - |
-    Domínio: sistema da Diretoria de Logística da UFG. Usuários primários:
-    Coordenador de Manutenção (CMAN) e Coordenador de Transporte. Sistema
-    substitui processo manual papel→Forms→Prime.
-
-  - |
-    Regra: OS de manutenção SEMPRE nasce com status "pendente revisão CMAN".
-    Motoristas antigos preenchem em papel; alguém digitaliza depois. Não
-    criar OS já aprovada nem pular esse status.
-
-  - |
-    Regra: veículo com FIPE ≥ 40% de custo acumulado de manutenção é
-    classificado como "antieconômico". Esse limiar é regra de negócio,
-    não constante mágica — qualquer mudança precisa estar documentada.
-
-  - |
-    Regra: itens de farol e palhetas FICAM FORA da preventiva (são
-    consumíveis sob demanda). Não incluir em alertas de KM nem em rotinas
-    de manutenção preventiva automática.
-
-  - |
-    Regra: todo veículo em manutenção deve inativar automaticamente
-    (status='manutencao' ou 'inativo') — não fica "disponível".
-
-  - |
-    LGPD: dados de motorista (CPF, CNH, telefone) e usuários (e-mail @ufg.br)
-    são pessoais. Aponte qualquer log/dump/response que exponha esses
-    campos sem necessidade.
 
 chat:
   auto_reply: true
