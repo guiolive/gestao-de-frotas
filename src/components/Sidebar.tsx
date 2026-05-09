@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 // Users segue comentado enquanto /motoristas está oculto.
 import { LayoutDashboard, Car, UserCog, Building2, Map, Wrench, BarChart3, LogOut, Menu, X, Hammer, Package, ClipboardList, Calendar } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 /**
  * `setores` define em quais setores o item aparece na sidebar:
@@ -44,24 +44,16 @@ function itemVisivelPraSetor(
   return itemSetores.includes(userSetor as "TRANSPORTE" | "MANUTENCAO");
 }
 
-interface User {
+export interface SidebarUser {
   nome: string;
   tipo: string;
   setor?: string;
 }
 
-export default function Sidebar() {
+export default function Sidebar({ user }: { user: SidebarUser | null }) {
   const pathname = usePathname();
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    fetch("/api/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
-      .then(setUser)
-      .catch(() => {});
-  }, []);
 
   async function handleLogout() {
     // Cookie de auth é HttpOnly — só o servidor consegue apagá-lo.
