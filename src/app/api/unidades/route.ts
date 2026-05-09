@@ -1,14 +1,25 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, unidadeCreateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = request.nextUrl;
-  const ativo = searchParams.get("ativo");
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
 
-  const where = ativo !== null ? { ativo: ativo === "true" } : undefined;
+  const { searchParams } = request.nextUrl;
+  const ativoParam = searchParams.get("ativo");
+  const incluirInativos = searchParams.get("incluirInativos") === "true";
+
+  // Filtro padrão pós soft-delete: só ativas. ?ativo=false mostra só inativas;
+  // ?incluirInativos=true mostra ambas.
+  let where: { ativo?: boolean } | undefined;
+  if (ativoParam !== null) {
+    where = { ativo: ativoParam === "true" };
+  } else if (!incluirInativos) {
+    where = { ativo: true };
+  }
 
   const unidades = await prisma.unidade.findMany({
     where,

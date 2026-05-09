@@ -4,8 +4,12 @@ import {
   CATEGORIAS_SERVICOS,
   listarServicosPorCategoria,
 } from "@/lib/servicos-manutencao";
+import { requireAuth } from "@/lib/authz";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = request.nextUrl;
   const termo = searchParams.get("q");
   const categoria = searchParams.get("categoria");

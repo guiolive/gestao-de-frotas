@@ -18,6 +18,9 @@ import { inicioDoMes, fimDoMes } from "@/lib/calendario";
  * `?status=lista_espera` sem ano/mes (devolve todas).
  */
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const url = new URL(request.url);
   const statusParam = url.searchParams.get("status");
   const anoParam = url.searchParams.get("ano");

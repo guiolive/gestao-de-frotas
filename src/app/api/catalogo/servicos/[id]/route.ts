@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, servicoUpdateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const servico = await prisma.servico.findUnique({ where: { id: params.id } });
   if (!servico) {
     return Response.json({ error: "Serviço não encontrado" }, { status: 404 });

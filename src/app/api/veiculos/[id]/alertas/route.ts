@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, alertaKmCreateSchema } from "@/lib/validation";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const alertas = await prisma.alertaKm.findMany({
     where: { veiculoId: id },

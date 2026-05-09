@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, pecaUpdateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const peca = await prisma.peca.findUnique({ where: { id: params.id } });
   if (!peca) {
     return Response.json({ error: "Peça não encontrada" }, { status: 404 });

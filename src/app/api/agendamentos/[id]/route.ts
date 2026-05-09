@@ -5,9 +5,12 @@ import { logAudit } from "@/lib/audit";
 import { validateBody, agendamentoUpdateSchema } from "@/lib/validation";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const agendamento = await prisma.agendamento.findUnique({
     where: { id },

@@ -1,16 +1,26 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, oficinaCreateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = request.nextUrl;
-  const ativa = searchParams.get("ativa");
+  const ativaParam = searchParams.get("ativa");
+  const incluirInativas = searchParams.get("incluirInativas") === "true";
   const q = searchParams.get("q")?.trim();
 
+  // Filtro padrão pós soft-delete: só ativas. ?ativa=false mostra só inativas;
+  // ?incluirInativas=true mostra ambas.
   const where: { ativa?: boolean; OR?: object[] } = {};
-  if (ativa !== null) where.ativa = ativa === "true";
+  if (ativaParam !== null) {
+    where.ativa = ativaParam === "true";
+  } else if (!incluirInativas) {
+    where.ativa = true;
+  }
   if (q) {
     where.OR = [
       { nome: { contains: q, mode: "insensitive" } },

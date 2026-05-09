@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, pecaCreateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = request.nextUrl;
   const ativo = searchParams.get("ativo");
   const q = searchParams.get("q")?.trim();
