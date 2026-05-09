@@ -25,6 +25,7 @@ import { logger } from "./logger";
 export type AuditAcao =
   | "login_success"
   | "login_failure"
+  | "logout"
   | "create"
   | "update"
   | "delete";

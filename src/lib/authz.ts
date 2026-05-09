@@ -80,3 +80,29 @@ export function requireTipo(
 
   return [user, null];
 }
+
+/**
+ * Require the user to have visibility into one of the allowed setores.
+ * ADMINISTRADOR sempre passa; usuários com setor "AMBOS" também.
+ * Caso contrário, o setor do usuário precisa estar na lista.
+ */
+export function requireSetor(
+  request: NextRequest,
+  allowed: Array<"TRANSPORTE" | "MANUTENCAO">
+): AuthResult {
+  const [user, err] = requireAuth(request);
+  if (err) return [null, err];
+
+  if (user.tipo === "ADMINISTRADOR") return [user, null];
+  if (user.setor === "AMBOS") return [user, null];
+  if (allowed.includes(user.setor as "TRANSPORTE" | "MANUTENCAO"))
+    return [user, null];
+
+  return [
+    null,
+    NextResponse.json(
+      { error: "Acesso negado: setor sem permissão para este recurso" },
+      { status: 403 }
+    ),
+  ];
+}

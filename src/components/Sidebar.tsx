@@ -63,9 +63,16 @@ export default function Sidebar() {
       .catch(() => {});
   }, []);
 
-  function handleLogout() {
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+  async function handleLogout() {
+    // Cookie de auth é HttpOnly — só o servidor consegue apagá-lo.
+    // Tentar via document.cookie aqui é no-op silencioso.
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+    } catch {
+      // mesmo se a chamada falhar, redirecionamos pro login pra UX consistente
+    }
     router.push("/login");
+    router.refresh();
   }
 
   function isActive(href: string) {
