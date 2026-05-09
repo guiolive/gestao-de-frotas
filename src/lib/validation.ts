@@ -374,6 +374,16 @@ const itemManutencaoSchema = z.object({
   pecaId: z.string().min(1).optional().nullable(),
 });
 
+// Status do ciclo de vida da OS. O `create` NÃO aceita status no input —
+// toda OS nasce como "aguardando" (= "pendente revisão CMAN") server-side.
+// Transições posteriores acontecem via PUT após revisão do CMAN.
+export const manutencaoStatusEnum = z.enum([
+  "aguardando",
+  "em_andamento",
+  "concluida",
+  "cancelada",
+]);
+
 export const manutencaoCreateSchema = z.object({
   veiculoId: z.string().min(1, "Veículo é obrigatório"),
   oficinaId: z.string().min(1).optional().nullable(),
@@ -383,16 +393,16 @@ export const manutencaoCreateSchema = z.object({
   previsaoSaida: z.coerce.date().optional().nullable(),
   previsaoDias: z.coerce.number().int().nonnegative().default(0),
   custoEstimado: z.coerce.number().nonnegative().optional().nullable(),
-  status: z
-    .enum(["aguardando", "em_andamento", "concluida", "cancelada"])
-    .default("aguardando"),
   enviadaPrimeEm: z.coerce.date().optional().nullable(),
   retornoEfetivoEm: z.coerce.date().optional().nullable(),
   checklist: z.array(checklistItemSchema).max(200).default([]),
   itens: z.array(itemManutencaoSchema).max(200).default([]),
 });
 
-export const manutencaoUpdateSchema = manutencaoCreateSchema.partial();
+// O update aceita status — é o caminho legítimo de transição após criação.
+export const manutencaoUpdateSchema = manutencaoCreateSchema.partial().extend({
+  status: manutencaoStatusEnum.optional(),
+});
 
 // ─────────────────────────────────────────────────────────
 // AlertaKm

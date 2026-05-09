@@ -26,9 +26,11 @@ function createPrismaClient() {
   // Pool pequeno por instância: cada função serverless é isolada, e o Neon
   // (pgbouncer) gerencia o pool real do lado do banco. Sem isso, dezenas de
   // cold starts somam centenas de conexões e estouram o limite do Neon.
+  // `||` (não `??`) pra tratar string vazia como ausente: DATABASE_POOL_MAX=""
+  // resultaria em max:0 com `??`, bloqueando todas as conexões.
   const pool = new pg.Pool({
     connectionString: url,
-    max: Number(process.env.DATABASE_POOL_MAX ?? 1),
+    max: Number(process.env.DATABASE_POOL_MAX) || 1,
     idleTimeoutMillis: 10_000,
   });
   const adapter = new PrismaPg(pool);

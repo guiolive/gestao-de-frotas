@@ -42,7 +42,11 @@ export async function POST(request: NextRequest) {
         previsaoDias: data.previsaoDias,
         custoEstimado: data.custoEstimado ?? null,
         valorTotal: valorTotal > 0 ? valorTotal : null,
-        status: data.status,
+        // OS sempre nasce como "pendente revisão CMAN" — representada
+        // tecnicamente pelo enum "aguardando" no schema. Cliente NÃO pode
+        // ditar o status inicial; transições posteriores (em_andamento,
+        // concluida, cancelada) acontecem via PUT após a revisão.
+        status: "aguardando",
         enviadaPrimeEm: data.enviadaPrimeEm ?? null,
         retornoEfetivoEm: data.retornoEfetivoEm ?? null,
         checklist: {
