@@ -1,7 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
+import { requireAuth } from "@/lib/authz";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = request.nextUrl;
   const dataInicio = searchParams.get("dataInicio");
   const dataFim = searchParams.get("dataFim");

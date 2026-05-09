@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
@@ -50,9 +50,12 @@ function detectMimeFromBuffer(buffer: Buffer): string | null {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const imagens = await prisma.imagemVeiculo.findMany({
     where: { veiculoId: id },

@@ -2,11 +2,15 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, manutencaoUpdateSchema } from "@/lib/validation";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const manutencao = await prisma.manutencao.findUnique({
     where: { id },
@@ -28,116 +32,103 @@ export async function PUT(
   if (authErr) return authErr;
 
   const { id } = params;
-  const body = await request.json();
 
-  // Fetch current manutencao
+  const [data, valErr] = await validateBody(request, manutencaoUpdateSchema);
+  if (valErr) return valErr;
+
   const current = await prisma.manutencao.findUnique({
     where: { id },
-    include: { veiculo: true },
+    select: { id: true, veiculoId: true, previsaoSaida: true },
   });
-
   if (!current) {
     return Response.json({ error: "Manutenção não encontrada" }, { status: 404 });
   }
 
-  // Build basic update data
-  const data: Record<string, unknown> = {};
-  if (body.tipo !== undefined) data.tipo = body.tipo;
-  if (body.descricao !== undefined) data.descricao = body.descricao;
-  if (body.dataEntrada !== undefined) data.dataEntrada = new Date(body.dataEntrada);
-  if (body.previsaoSaida !== undefined) {
-    const novaPrevisao = body.previsaoSaida ? new Date(body.previsaoSaida) : null;
-    data.previsaoSaida = novaPrevisao;
+  // Patch parcial: só os campos enviados entram no update.
+  const updateData: Record<string, unknown> = {};
+  if (data.tipo !== undefined) updateData.tipo = data.tipo;
+  if (data.descricao !== undefined) updateData.descricao = data.descricao;
+  if (data.dataEntrada !== undefined) updateData.dataEntrada = data.dataEntrada;
+  if (data.previsaoDias !== undefined) updateData.previsaoDias = data.previsaoDias;
+  if (data.custoEstimado !== undefined) updateData.custoEstimado = data.custoEstimado ?? null;
+  if (data.status !== undefined) updateData.status = data.status;
+  if (data.oficinaId !== undefined) updateData.oficinaId = data.oficinaId ?? null;
+  if (data.enviadaPrimeEm !== undefined) updateData.enviadaPrimeEm = data.enviadaPrimeEm ?? null;
+  if (data.retornoEfetivoEm !== undefined) updateData.retornoEfetivoEm = data.retornoEfetivoEm ?? null;
+
+  if (data.previsaoSaida !== undefined) {
+    const novaPrevisao = data.previsaoSaida ?? null;
+    updateData.previsaoSaida = novaPrevisao;
     // Marca o timestamp da mudança quando o valor difere do atual — alimenta
     // o feed de "novidades da oficina" no painel de transporte.
     const atualMs = current.previsaoSaida ? new Date(current.previsaoSaida).getTime() : null;
     const novaMs = novaPrevisao ? novaPrevisao.getTime() : null;
     if (atualMs !== novaMs) {
-      data.previsaoSaidaAtualizadaEm = new Date();
+      updateData.previsaoSaidaAtualizadaEm = new Date();
     }
   }
-  if (body.previsaoDias !== undefined) data.previsaoDias = Number(body.previsaoDias) || 0;
-  if (body.custoEstimado !== undefined) data.custoEstimado = body.custoEstimado ? Number(body.custoEstimado) : null;
-  if (body.status !== undefined) data.status = body.status;
 
-  // Rastreio Prime (terceirizada) — campos manuais até integração com webservice
-  if (body.oficinaId !== undefined) {
-    const v = body.oficinaId;
-    data.oficinaId = typeof v === "string" && v.trim() !== "" ? v : null;
-  }
-  if (body.enviadaPrimeEm !== undefined) {
-    data.enviadaPrimeEm = body.enviadaPrimeEm ? new Date(body.enviadaPrimeEm) : null;
-  }
-  if (body.retornoEfetivoEm !== undefined) {
-    data.retornoEfetivoEm = body.retornoEfetivoEm ? new Date(body.retornoEfetivoEm) : null;
+  if (data.itens !== undefined) {
+    const valorTotal = data.itens.reduce((acc, it) => acc + (it.valor ?? 0), 0);
+    updateData.valorTotal = valorTotal > 0 ? valorTotal : null;
   }
 
-  // If itens provided, recalculate valorTotal
-  if (body.itens !== undefined) {
-    const valorTotal = (body.itens as { valor: number }[]).reduce(
-      (acc, item) => acc + (Number(item.valor) || 0),
-      0
-    );
-    data.valorTotal = valorTotal > 0 ? valorTotal : null;
-  }
+  // Tudo dentro de uma única transação: update da manutenção, recriação
+  // de checklist/itens (delete + createMany), e sincronização do status do
+  // veículo. Sem $transaction, qualquer falha no meio deixa OS órfã ou
+  // veículo com status divergente.
+  const updated = await prisma.$transaction(async (tx) => {
+    await tx.manutencao.update({ where: { id }, data: updateData });
 
-  // Update manutencao (re-fetched below com checklist/itens atualizados)
-  await prisma.manutencao.update({
-    where: { id },
-    data,
-  });
-
-  // If checklist provided: delete all existing and create new
-  if (body.checklist !== undefined) {
-    await prisma.checklistItem.deleteMany({ where: { manutencaoId: id } });
-    if (body.checklist.length > 0) {
-      await prisma.checklistItem.createMany({
-        data: (body.checklist as { categoria: string; temProblema: boolean; descricao?: string }[]).map(
-          (item) => ({
+    if (data.checklist !== undefined) {
+      await tx.checklistItem.deleteMany({ where: { manutencaoId: id } });
+      if (data.checklist.length > 0) {
+        await tx.checklistItem.createMany({
+          data: data.checklist.map((c) => ({
             manutencaoId: id,
-            categoria: item.categoria,
-            temProblema: item.temProblema,
-            descricao: item.descricao || null,
-          })
-        ),
+            categoria: c.categoria,
+            temProblema: c.temProblema,
+            descricao: c.descricao ?? null,
+          })),
+        });
+      }
+    }
+
+    if (data.itens !== undefined) {
+      await tx.itemManutencao.deleteMany({ where: { manutencaoId: id } });
+      if (data.itens.length > 0) {
+        await tx.itemManutencao.createMany({
+          data: data.itens.map((it) => ({
+            manutencaoId: id,
+            servico: it.servico,
+            valor: it.valor,
+            observacao: it.observacao ?? null,
+            servicoRefId: it.servicoRefId ?? null,
+            pecaId: it.pecaId ?? null,
+          })),
+        });
+      }
+    }
+
+    // Regra de negócio: status da manutenção dita status do veículo, MAS
+    // veículo soft-deletado (status="inativo") nunca volta sozinho — usar
+    // updateMany com guard pra não reativar inativos sem ação explícita.
+    if (data.status === "concluida" || data.status === "cancelada") {
+      await tx.veiculo.updateMany({
+        where: { id: current.veiculoId, status: { not: "inativo" } },
+        data: { status: "disponivel" },
+      });
+    } else if (data.status === "aguardando" || data.status === "em_andamento") {
+      await tx.veiculo.updateMany({
+        where: { id: current.veiculoId, status: { not: "inativo" } },
+        data: { status: "manutencao" },
       });
     }
-  }
 
-  // If itens provided: delete all existing and create new
-  if (body.itens !== undefined) {
-    await prisma.itemManutencao.deleteMany({ where: { manutencaoId: id } });
-    if (body.itens.length > 0) {
-      await prisma.itemManutencao.createMany({
-        data: (body.itens as { servico: string; valor: number; observacao?: string }[]).map(
-          (item) => ({
-            manutencaoId: id,
-            servico: item.servico,
-            valor: Number(item.valor) || 0,
-            observacao: item.observacao || null,
-          })
-        ),
-      });
-    }
-  }
-
-  // Business rules for vehicle status based on manutencao status
-  if (body.status === "concluida" || body.status === "cancelada") {
-    await prisma.veiculo.update({
-      where: { id: current.veiculoId },
-      data: { status: "disponivel" },
+    return tx.manutencao.findUnique({
+      where: { id },
+      include: { veiculo: true, checklist: true, itens: true },
     });
-  } else if (body.status === "aguardando" || body.status === "em_andamento") {
-    await prisma.veiculo.update({
-      where: { id: current.veiculoId },
-      data: { status: "manutencao" },
-    });
-  }
-
-  // Re-fetch with updated relations
-  const updated = await prisma.manutencao.findUnique({
-    where: { id },
-    include: { veiculo: true, checklist: true, itens: true },
   });
 
   await logAudit({
@@ -146,7 +137,7 @@ export async function PUT(
     acao: "update",
     recurso: "manutencao",
     recursoId: id,
-    dados: { status: body.status, ...data },
+    dados: { status: data.status, ...updateData },
   });
 
   return Response.json(updated);

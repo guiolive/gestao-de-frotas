@@ -1,15 +1,28 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, veiculoCreateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = request.nextUrl;
   const status = searchParams.get("status");
+  const incluirInativos = searchParams.get("incluirInativos") === "true";
+
+  // Filtro padrão pós soft-delete: oculta veículos com status="inativo".
+  // Se ?status=X explícito, respeita. Se ?incluirInativos=true, mostra todos.
+  let where: { status?: string | { not: string } } | undefined;
+  if (status) {
+    where = { status };
+  } else if (!incluirInativos) {
+    where = { status: { not: "inativo" } };
+  }
 
   const veiculos = await prisma.veiculo.findMany({
-    where: status ? { status } : undefined,
+    where,
     orderBy: { criadoEm: "desc" },
   });
 

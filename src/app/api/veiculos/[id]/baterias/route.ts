@@ -1,18 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, bateriaCreateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 /**
  * Lista histórico de baterias do veículo (mais recente primeiro).
- * Auth garantida pelo middleware (`/api/*` exige cookie). Operadores
- * podem ver; só admin cria/substitui.
+ * Operadores podem ver; só admin cria/substitui.
  */
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const baterias = await prisma.bateria.findMany({
     where: { veiculoId: params.id },
     orderBy: [{ dataSubstituicao: "desc" }, { dataInstalacao: "desc" }],

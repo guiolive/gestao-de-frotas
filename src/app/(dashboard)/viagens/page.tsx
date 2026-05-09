@@ -80,9 +80,9 @@ export default async function ViagensPage({
         unidade: true,
       },
     }),
-    prisma.veiculo.findMany({ orderBy: { placa: "asc" }, select: { id: true, placa: true, modelo: true } }),
+    prisma.veiculo.findMany({ where: { status: { not: "inativo" } }, orderBy: { placa: "asc" }, select: { id: true, placa: true, modelo: true } }),
     prisma.motorista.findMany({ where: { status: "ativo" }, orderBy: { nome: "asc" }, select: { id: true, nome: true } }),
-    prisma.unidade.findMany({ orderBy: { sigla: "asc" }, select: { id: true, sigla: true } }),
+    prisma.unidade.findMany({ where: { ativo: true }, orderBy: { sigla: "asc" }, select: { id: true, sigla: true } }),
   ]);
 
   return (

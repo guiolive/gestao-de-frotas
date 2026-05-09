@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, veiculoUpdateSchema } from "@/lib/validation";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const veiculo = await prisma.veiculo.findUnique({
     where: { id },
@@ -81,10 +84,22 @@ export async function DELETE(
 
   const { id } = params;
 
-  // Snapshot pré-delete pra trilha (se sumir, ainda temos os dados)
+  // Soft delete: marca como inativo em vez de apagar do banco. Preserva
+  // referências em viagens/manutenções/agendamentos históricos (FKs sem
+  // onDelete fariam hard delete falhar mesmo). Idempotente: se já está
+  // inativo, retorna ok sem audit duplicado.
   const snapshot = await prisma.veiculo.findUnique({ where: { id } });
+  if (!snapshot) {
+    return Response.json({ error: "Veículo não encontrado" }, { status: 404 });
+  }
+  if (snapshot.status === "inativo") {
+    return Response.json({ ok: true, alreadyInactive: true });
+  }
 
-  await prisma.veiculo.delete({ where: { id } });
+  await prisma.veiculo.update({
+    where: { id },
+    data: { status: "inativo" },
+  });
 
   await logAudit({
     request,

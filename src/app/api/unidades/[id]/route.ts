@@ -1,12 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
 
   const unidade = await prisma.unidade.findUnique({
@@ -81,16 +84,21 @@ export async function DELETE(
 
   const { id } = params;
 
-  const count = await prisma.viagem.count({ where: { unidadeId: id } });
-  if (count > 0) {
-    return Response.json(
-      { error: "Unidade possui viagens vinculadas" },
-      { status: 400 }
-    );
+  // Soft delete: ativo=false. Mantém viagens históricas vinculadas (não
+  // precisa mais bloquear quando há viagens — o registro continua existindo).
+  // Idempotente: se já está inativa, retorna ok sem audit duplicado.
+  const snapshot = await prisma.unidade.findUnique({ where: { id } });
+  if (!snapshot) {
+    return Response.json({ error: "Unidade não encontrada" }, { status: 404 });
+  }
+  if (!snapshot.ativo) {
+    return Response.json({ ok: true, alreadyInactive: true });
   }
 
-  const snapshot = await prisma.unidade.findUnique({ where: { id } });
-  await prisma.unidade.delete({ where: { id } });
+  await prisma.unidade.update({
+    where: { id },
+    data: { ativo: false },
+  });
 
   await logAudit({
     request,

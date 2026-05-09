@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, motoristaUpdateSchema } from "@/lib/validation";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { id } = params;
   const motorista = await prisma.motorista.findUnique({
     where: { id },
@@ -84,8 +87,22 @@ export async function DELETE(
   if (authErr) return authErr;
 
   const { id } = params;
+
+  // Soft delete: marca como inativo. Preserva FKs em viagens históricas
+  // (motorista1/motorista2). Idempotente: se já está inativo, retorna ok
+  // sem audit duplicado.
   const snapshot = await prisma.motorista.findUnique({ where: { id } });
-  await prisma.motorista.delete({ where: { id } });
+  if (!snapshot) {
+    return Response.json({ error: "Motorista não encontrado" }, { status: 404 });
+  }
+  if (snapshot.status === "inativo") {
+    return Response.json({ ok: true, alreadyInactive: true });
+  }
+
+  await prisma.motorista.update({
+    where: { id },
+    data: { status: "inativo" },
+  });
 
   await logAudit({
     request,

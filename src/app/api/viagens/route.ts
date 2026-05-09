@@ -4,6 +4,9 @@ import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const veiculoId = searchParams.get("veiculoId");

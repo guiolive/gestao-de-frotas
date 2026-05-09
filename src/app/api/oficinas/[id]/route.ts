@@ -1,13 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { validateBody, oficinaUpdateSchema } from "@/lib/validation";
-import { requireTipo } from "@/lib/authz";
+import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const oficina = await prisma.oficina.findUnique({
     where: { id: params.id },
     include: { _count: { select: { manutencoes: true } } },
@@ -64,20 +67,21 @@ export async function DELETE(
   const [user, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
   if (authErr) return authErr;
 
-  const count = await prisma.manutencao.count({ where: { oficinaId: params.id } });
-  if (count > 0) {
-    return Response.json(
-      { error: "Oficina possui manutenções vinculadas" },
-      { status: 400 }
-    );
-  }
-
+  // Soft delete: ativa=false. Mantém manutenções históricas vinculadas
+  // (não precisa mais bloquear). Idempotente: se já está inativa, retorna
+  // ok sem audit duplicado.
   const snapshot = await prisma.oficina.findUnique({ where: { id: params.id } });
   if (!snapshot) {
     return Response.json({ error: "Oficina não encontrada" }, { status: 404 });
   }
+  if (!snapshot.ativa) {
+    return Response.json({ ok: true, alreadyInactive: true });
+  }
 
-  await prisma.oficina.delete({ where: { id: params.id } });
+  await prisma.oficina.update({
+    where: { id: params.id },
+    data: { ativa: false },
+  });
 
   await logAudit({
     request,
