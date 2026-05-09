@@ -3,16 +3,27 @@ import { NextRequest } from "next/server";
 import { requireAuth, requireSetor } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, manutencaoCreateSchema } from "@/lib/validation";
+import { parsePagination, paginated } from "@/lib/pagination";
 
 export async function GET(request: NextRequest) {
   const [, authErr] = requireAuth(request);
   if (authErr) return authErr;
 
+  const { skip, take, page, limit, paginationRequested } =
+    parsePagination(request);
+
   const manutencoes = await prisma.manutencao.findMany({
     orderBy: { criadoEm: "desc" },
+    skip,
+    take,
     include: { veiculo: true, checklist: true, itens: true },
   });
-  return Response.json(manutencoes);
+
+  if (!paginationRequested) {
+    return Response.json(manutencoes);
+  }
+  const total = await prisma.manutencao.count();
+  return Response.json(paginated(manutencoes, total, page, limit));
 }
 
 export async function POST(request: NextRequest) {
