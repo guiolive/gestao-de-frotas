@@ -110,15 +110,17 @@ export async function PUT(
       }
     }
 
-    // Regra de negócio: status da manutenção dita status do veículo.
+    // Regra de negócio: status da manutenção dita status do veículo, MAS
+    // veículo soft-deletado (status="inativo") nunca volta sozinho — usar
+    // updateMany com guard pra não reativar inativos sem ação explícita.
     if (data.status === "concluida" || data.status === "cancelada") {
-      await tx.veiculo.update({
-        where: { id: current.veiculoId },
+      await tx.veiculo.updateMany({
+        where: { id: current.veiculoId, status: { not: "inativo" } },
         data: { status: "disponivel" },
       });
     } else if (data.status === "aguardando" || data.status === "em_andamento") {
-      await tx.veiculo.update({
-        where: { id: current.veiculoId },
+      await tx.veiculo.updateMany({
+        where: { id: current.veiculoId, status: { not: "inativo" } },
         data: { status: "manutencao" },
       });
     }

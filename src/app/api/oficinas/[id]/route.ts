@@ -68,10 +68,14 @@ export async function DELETE(
   if (authErr) return authErr;
 
   // Soft delete: ativa=false. Mantém manutenções históricas vinculadas
-  // (não precisa mais bloquear). Idempotente.
+  // (não precisa mais bloquear). Idempotente: se já está inativa, retorna
+  // ok sem audit duplicado.
   const snapshot = await prisma.oficina.findUnique({ where: { id: params.id } });
   if (!snapshot) {
     return Response.json({ error: "Oficina não encontrada" }, { status: 404 });
+  }
+  if (!snapshot.ativa) {
+    return Response.json({ ok: true, alreadyInactive: true });
   }
 
   await prisma.oficina.update({

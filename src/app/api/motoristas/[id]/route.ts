@@ -89,10 +89,14 @@ export async function DELETE(
   const { id } = params;
 
   // Soft delete: marca como inativo. Preserva FKs em viagens históricas
-  // (motorista1/motorista2). Idempotente.
+  // (motorista1/motorista2). Idempotente: se já está inativo, retorna ok
+  // sem audit duplicado.
   const snapshot = await prisma.motorista.findUnique({ where: { id } });
   if (!snapshot) {
     return Response.json({ error: "Motorista não encontrado" }, { status: 404 });
+  }
+  if (snapshot.status === "inativo") {
+    return Response.json({ ok: true, alreadyInactive: true });
   }
 
   await prisma.motorista.update({

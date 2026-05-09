@@ -86,10 +86,13 @@ export async function DELETE(
 
   // Soft delete: ativo=false. Mantém viagens históricas vinculadas (não
   // precisa mais bloquear quando há viagens — o registro continua existindo).
-  // Idempotente.
+  // Idempotente: se já está inativa, retorna ok sem audit duplicado.
   const snapshot = await prisma.unidade.findUnique({ where: { id } });
   if (!snapshot) {
     return Response.json({ error: "Unidade não encontrada" }, { status: 404 });
+  }
+  if (!snapshot.ativo) {
+    return Response.json({ ok: true, alreadyInactive: true });
   }
 
   await prisma.unidade.update({

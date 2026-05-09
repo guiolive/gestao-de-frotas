@@ -86,11 +86,14 @@ export async function DELETE(
 
   // Soft delete: marca como inativo em vez de apagar do banco. Preserva
   // referências em viagens/manutenções/agendamentos históricos (FKs sem
-  // onDelete fariam hard delete falhar mesmo). Idempotente — desativar
-  // veículo já inativo continua retornando ok.
+  // onDelete fariam hard delete falhar mesmo). Idempotente: se já está
+  // inativo, retorna ok sem audit duplicado.
   const snapshot = await prisma.veiculo.findUnique({ where: { id } });
   if (!snapshot) {
     return Response.json({ error: "Veículo não encontrado" }, { status: 404 });
+  }
+  if (snapshot.status === "inativo") {
+    return Response.json({ ok: true, alreadyInactive: true });
   }
 
   await prisma.veiculo.update({
