@@ -50,7 +50,9 @@ export interface SidebarUser {
   setor?: string;
 }
 
-export default function Sidebar({ user }: { user: SidebarUser | null }) {
+// `user` é obrigatório: o layout (server) já bloqueia o render quando
+// não há sessão válida (redirect → /login). Aqui chega sempre populado.
+export default function Sidebar({ user }: { user: SidebarUser }) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -106,23 +108,21 @@ export default function Sidebar({ user }: { user: SidebarUser | null }) {
         )}
       </nav>
 
-      {user && (
-        <div className="p-4 border-t border-slate-700">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-              {user.nome.charAt(0)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user.nome}</p>
-              <p className="text-xs text-slate-400">{user.tipo}</p>
-            </div>
+      <div className="p-4 border-t border-slate-700">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+            {user.nome.charAt(0)}
           </div>
-          <button onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
-            <LogOut className="w-4 h-4" /> Sair
-          </button>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{user.nome}</p>
+            <p className="text-xs text-slate-400">{user.tipo}</p>
+          </div>
         </div>
-      )}
+        <button onClick={handleLogout}
+          className="flex items-center gap-2 w-full px-3 py-2 text-sm text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-colors">
+          <LogOut className="w-4 h-4" /> Sair
+        </button>
+      </div>
     </>
   );
 

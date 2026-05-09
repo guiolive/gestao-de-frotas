@@ -37,43 +37,63 @@ export default function AcoesManutencao({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [primeMsg, setPrimeMsg] = useState("");
+  const [erroMsg, setErroMsg] = useState("");
 
   async function atualizarStatus(novoStatus: string) {
     setLoading(true);
-    await fetch(`/api/manutencoes/${manutencaoId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: novoStatus }),
-    });
-    if (novoStatus === "concluida") {
-      router.push("/manutencoes");
-    } else {
-      // Server component re-renderiza com dados frescos.
-      router.refresh();
+    setErroMsg("");
+    try {
+      const res = await fetch(`/api/manutencoes/${manutencaoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: novoStatus }),
+      });
+      if (!res.ok) {
+        setErroMsg(`Não foi possível atualizar (HTTP ${res.status}).`);
+        return;
+      }
+      if (novoStatus === "concluida") {
+        router.push("/manutencoes");
+      } else {
+        // Server component re-renderiza com dados frescos.
+        router.refresh();
+      }
+    } catch (err) {
+      setErroMsg(`Erro de rede: ${err instanceof Error ? err.message : "desconhecido"}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   async function atualizarPrime(payload: Record<string, unknown>, msg: string) {
     setLoading(true);
     setPrimeMsg("");
-    const res = await fetch(`/api/manutencoes/${manutencaoId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!res.ok) {
-      setPrimeMsg("Erro ao atualizar.");
-    } else {
+    setErroMsg("");
+    try {
+      const res = await fetch(`/api/manutencoes/${manutencaoId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        setErroMsg(`Não foi possível atualizar (HTTP ${res.status}).`);
+        return;
+      }
       setPrimeMsg(msg);
       router.refresh();
+    } catch (err) {
+      setErroMsg(`Erro de rede: ${err instanceof Error ? err.message : "desconhecido"}`);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
     <>
-      {status !== "concluida" && (
+      {/* Fluxo obrigatório: aguardando → em_andamento → concluida.
+          Não pular etapas — quem aprova ("Iniciar") e quem fecha
+          ("Concluir") são gestos distintos do CMAN. */}
+      {(status === "aguardando" || status === "em_andamento") && (
         <div className="flex gap-3 mt-6 pt-4 border-t">
           {status === "aguardando" && (
             <button
@@ -84,13 +104,15 @@ export default function AcoesManutencao({
               Iniciar Manutenção
             </button>
           )}
-          <button
-            onClick={() => atualizarStatus("concluida")}
-            disabled={loading}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            Concluir Manutenção
-          </button>
+          {status === "em_andamento" && (
+            <button
+              onClick={() => atualizarStatus("concluida")}
+              disabled={loading}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              Concluir Manutenção
+            </button>
+          )}
         </div>
       )}
 
@@ -170,6 +192,7 @@ export default function AcoesManutencao({
         </div>
 
         {primeMsg && <p className="text-sm text-emerald-700">{primeMsg}</p>}
+        {erroMsg && <p className="text-sm text-red-700 font-medium">{erroMsg}</p>}
         {emAtraso && (
           <p className="text-sm text-red-700 font-medium">
             Veículo está {diasAtraso} dias além da previsão de saída.

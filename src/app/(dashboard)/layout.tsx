@@ -1,4 +1,5 @@
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import Sidebar, { type SidebarUser } from "@/components/Sidebar";
 import { verificarToken } from "@/lib/jwt";
 import { prisma } from "@/lib/prisma";
@@ -6,6 +7,10 @@ import { prisma } from "@/lib/prisma";
 // Lê o usuário no servidor pra montar a sidebar com dados corretos no
 // primeiro render — antes ela buscava via fetch /api/auth/me em useEffect,
 // causando flash de "menus sumindo" durante a navegação.
+//
+// Também age como segunda barreira de auth: middleware valida o JWT, mas
+// não checa se o usuário ainda existe ou está ativo no DB. Aqui re-checamos
+// a cada navegação — usuário desativado é deslogado mesmo com token válido.
 async function lerUsuarioParaSidebar(): Promise<SidebarUser | null> {
   const token = cookies().get("token")?.value;
   if (!token) return null;
@@ -31,6 +36,7 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const user = await lerUsuarioParaSidebar();
+  if (!user) redirect("/login");
 
   return (
     <div className="min-h-full flex">
