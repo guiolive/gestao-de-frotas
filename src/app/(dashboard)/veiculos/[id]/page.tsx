@@ -34,10 +34,11 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
       manutencoes: {
         include: { itens: true },
         orderBy: { criadoEm: "desc" },
-        // Cap defensivo: histórico de manutenção pode crescer indefinidamente
-        // ao longo da vida do veículo. Take alto preserva o comportamento
-        // atual da página; se virar problema, paginar a tabela na UI.
-        take: 200,
+        // Sem take aqui: o array é usado pra calcular custoTotalManutencao,
+        // custo12m e a classificação FIPE antieconômico (≥40%) — capar
+        // subnotificaria os KPIs e poderia errar a classificação. Se um
+        // veículo passar de centenas de OS, refatorar pra agregação SQL
+        // (groupBy/sum) em vez de carregar tudo.
       },
       viagens: {
         include: { motorista: true },

@@ -21,14 +21,19 @@ export async function GET(request: NextRequest) {
   // Cap defensivo: relatório agrega tudo em memória. Em frota grande e
   // sem filtro de data isso pode pegar histórico inteiro. Take alto pra
   // não quebrar quem já usa, mas ideal é refatorar pra groupBy SQL.
-  const manutencoes = await prisma.manutencao.findMany({
-    where,
-    take: 5000,
-    include: {
-      itens: true,
-      veiculo: true,
-    },
-  });
+  // `truncated` na resposta avisa quando a amostra é menor que o total.
+  const CAP = 5000;
+  const [manutencoes, totalManutencoes] = await Promise.all([
+    prisma.manutencao.findMany({
+      where,
+      take: CAP,
+      include: {
+        itens: true,
+        veiculo: true,
+      },
+    }),
+    prisma.manutencao.count({ where }),
+  ]);
 
   // Calculate cost per maintenance
   const custosPorManutencao = manutencoes.map((m) => {
@@ -101,6 +106,7 @@ export async function GET(request: NextRequest) {
     custosPorMes,
     veiculoMaisCaro,
     mediaCustoPorVeiculo,
-    totalManutencoes: manutencoes.length,
+    totalManutencoes,
+    truncated: totalManutencoes > manutencoes.length,
   });
 }

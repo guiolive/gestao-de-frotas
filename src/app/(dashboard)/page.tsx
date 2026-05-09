@@ -73,6 +73,7 @@ async function carregarDadosManutencao() {
     }),
     prisma.manutencao.findMany({
       where: { status: "concluida", criadoEm: { gte: seismesesAtras } },
+      orderBy: { criadoEm: "desc" },
       take: 200,
       include: { veiculo: true },
     }),

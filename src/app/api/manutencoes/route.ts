@@ -12,19 +12,17 @@ export async function GET(request: NextRequest) {
   const { skip, take, page, limit, paginationRequested } =
     parsePagination(request);
 
-  const [manutencoes, total] = await Promise.all([
-    prisma.manutencao.findMany({
-      orderBy: { criadoEm: "desc" },
-      skip,
-      take,
-      include: { veiculo: true, checklist: true, itens: true },
-    }),
-    prisma.manutencao.count(),
-  ]);
+  const manutencoes = await prisma.manutencao.findMany({
+    orderBy: { criadoEm: "desc" },
+    skip,
+    take,
+    include: { veiculo: true, checklist: true, itens: true },
+  });
 
   if (!paginationRequested) {
     return Response.json(manutencoes);
   }
+  const total = await prisma.manutencao.count();
   return Response.json(paginated(manutencoes, total, page, limit));
 }
 

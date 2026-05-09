@@ -55,20 +55,18 @@ export async function GET(request: NextRequest) {
   const { skip, take, page, limit, paginationRequested } =
     parsePagination(request);
 
-  const [agendamentos, total] = await Promise.all([
-    prisma.agendamento.findMany({
-      where,
-      orderBy: { dataInicio: "asc" },
-      skip,
-      take,
-      include: { veiculo: true, unidade: true },
-    }),
-    prisma.agendamento.count({ where }),
-  ]);
+  const agendamentos = await prisma.agendamento.findMany({
+    where,
+    orderBy: { dataInicio: "asc" },
+    skip,
+    take,
+    include: { veiculo: true, unidade: true },
+  });
 
   if (!paginationRequested) {
     return Response.json(agendamentos);
   }
+  const total = await prisma.agendamento.count({ where });
   return Response.json(paginated(agendamentos, total, page, limit));
 }
 

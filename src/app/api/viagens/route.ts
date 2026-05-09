@@ -47,27 +47,26 @@ export async function GET(request: NextRequest) {
   const { skip, take, page, limit, paginationRequested } =
     parsePagination(request);
 
-  const [viagens, total] = await Promise.all([
-    prisma.viagem.findMany({
-      where,
-      orderBy: { criadoEm: "desc" },
-      skip,
-      take,
-      include: {
-        veiculo: true,
-        motorista: true,
-        motorista2: true,
-        unidade: true,
-      },
-    }),
-    prisma.viagem.count({ where }),
-  ]);
+  const viagens = await prisma.viagem.findMany({
+    where,
+    orderBy: { criadoEm: "desc" },
+    skip,
+    take,
+    include: {
+      veiculo: true,
+      motorista: true,
+      motorista2: true,
+      unidade: true,
+    },
+  });
 
-  // Compat: se cliente legado não pediu paginação, devolve só o array
-  // (cap em DEFAULT_LIMIT pra não estourar mesmo nesse caminho).
+  // Compat: cliente legado recebe só o array (cap em DEFAULT_LIMIT
+  // continua valendo). Count só roda quando o cliente pediu paginação —
+  // economiza uma query por request legada.
   if (!paginationRequested) {
     return Response.json(viagens);
   }
+  const total = await prisma.viagem.count({ where });
   return Response.json(paginated(viagens, total, page, limit));
 }
 
