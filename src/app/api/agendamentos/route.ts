@@ -4,6 +4,7 @@ import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, agendamentoCreateSchema } from "@/lib/validation";
 import { inicioDoMes, fimDoMes } from "@/lib/calendario";
+import { parsePagination, paginated } from "@/lib/pagination";
 
 /**
  * GET /api/agendamentos
@@ -51,13 +52,24 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const agendamentos = await prisma.agendamento.findMany({
-    where,
-    orderBy: { dataInicio: "asc" },
-    include: { veiculo: true, unidade: true },
-  });
+  const { skip, take, page, limit, paginationRequested } =
+    parsePagination(request);
 
-  return Response.json(agendamentos);
+  const [agendamentos, total] = await Promise.all([
+    prisma.agendamento.findMany({
+      where,
+      orderBy: { dataInicio: "asc" },
+      skip,
+      take,
+      include: { veiculo: true, unidade: true },
+    }),
+    prisma.agendamento.count({ where }),
+  ]);
+
+  if (!paginationRequested) {
+    return Response.json(agendamentos);
+  }
+  return Response.json(paginated(agendamentos, total, page, limit));
 }
 
 export async function POST(request: NextRequest) {

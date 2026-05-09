@@ -18,8 +18,12 @@ export async function GET(request: NextRequest) {
     where.dataEntrada = dataEntrada;
   }
 
+  // Cap defensivo: relatório agrega tudo em memória. Em frota grande e
+  // sem filtro de data isso pode pegar histórico inteiro. Take alto pra
+  // não quebrar quem já usa, mas ideal é refatorar pra groupBy SQL.
   const manutencoes = await prisma.manutencao.findMany({
     where,
+    take: 5000,
     include: {
       itens: true,
       veiculo: true,

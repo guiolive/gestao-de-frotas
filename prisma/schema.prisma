@@ -101,6 +101,9 @@ model Veiculo {
   imagens      ImagemVeiculo[]
   alertasKm    AlertaKm[]
   baterias     Bateria[]
+
+  @@index([status])
+  @@index([tipo])
 }
 
 model ImagemVeiculo {
@@ -223,6 +226,9 @@ model Viagem {
   @@index([motorista2Id])
   @@index([unidadeId])
   @@index([agendamentoId])
+  @@index([status])
+  @@index([dataSaida])
+  @@index([ufDestino])
 }
 
 /// Reserva/agendamento de veículo por unidade solicitante. Substitui a
@@ -256,6 +262,7 @@ model Agendamento {
   @@index([veiculoId])
   @@index([unidadeId])
   @@index([dataInicio, dataFim])
+  @@index([status])
 }
 
 model Manutencao {
@@ -291,6 +298,8 @@ model Manutencao {
   @@index([oficinaId])
   @@index([retornoEfetivoEm])
   @@index([previsaoSaidaAtualizadaEm])
+  @@index([status])
+  @@index([dataEntrada])
 }
 
 model ChecklistItem {

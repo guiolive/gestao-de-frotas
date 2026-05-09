@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { parsePagination, paginated } from "@/lib/pagination";
 
 export async function GET(request: NextRequest) {
   const [, authErr] = requireAuth(request);
@@ -13,7 +14,7 @@ export async function GET(request: NextRequest) {
   const motoristaId = searchParams.get("motoristaId");
   const unidadeId = searchParams.get("unidadeId");
   const ufDestino = searchParams.get("ufDestino");
-  const q = searchParams.get("q");
+  const q = searchParams.get("q")?.slice(0, 100);
   const dataInicio = searchParams.get("dataInicio");
   const dataFim = searchParams.get("dataFim");
 
@@ -32,28 +33,42 @@ export async function GET(request: NextRequest) {
     if (dataFim) where.dataSaida.lte = new Date(dataFim + "T23:59:59.999Z");
   }
 
-  // Free-text search across destino, origem, solicitante, processoSei
+  // Free-text search across destino, origem, solicitante, processoSei.
+  // mode: insensitive pra Postgres não fazer case-sensitive (default no like).
   if (q) {
     where.OR = [
-      { destino: { contains: q } },
-      { origem: { contains: q } },
-      { solicitante: { contains: q } },
-      { processoSei: { contains: q } },
+      { destino: { contains: q, mode: "insensitive" } },
+      { origem: { contains: q, mode: "insensitive" } },
+      { solicitante: { contains: q, mode: "insensitive" } },
+      { processoSei: { contains: q, mode: "insensitive" } },
     ];
   }
 
-  const viagens = await prisma.viagem.findMany({
-    where,
-    orderBy: { criadoEm: "desc" },
-    include: {
-      veiculo: true,
-      motorista: true,
-      motorista2: true,
-      unidade: true,
-    },
-  });
+  const { skip, take, page, limit, paginationRequested } =
+    parsePagination(request);
 
-  return Response.json(viagens);
+  const [viagens, total] = await Promise.all([
+    prisma.viagem.findMany({
+      where,
+      orderBy: { criadoEm: "desc" },
+      skip,
+      take,
+      include: {
+        veiculo: true,
+        motorista: true,
+        motorista2: true,
+        unidade: true,
+      },
+    }),
+    prisma.viagem.count({ where }),
+  ]);
+
+  // Compat: se cliente legado não pediu paginação, devolve só o array
+  // (cap em DEFAULT_LIMIT pra não estourar mesmo nesse caminho).
+  if (!paginationRequested) {
+    return Response.json(viagens);
+  }
+  return Response.json(paginated(viagens, total, page, limit));
 }
 
 export async function POST(request: NextRequest) {

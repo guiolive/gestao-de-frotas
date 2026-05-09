@@ -34,6 +34,10 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
       manutencoes: {
         include: { itens: true },
         orderBy: { criadoEm: "desc" },
+        // Cap defensivo: histórico de manutenção pode crescer indefinidamente
+        // ao longo da vida do veículo. Take alto preserva o comportamento
+        // atual da página; se virar problema, paginar a tabela na UI.
+        take: 200,
       },
       viagens: {
         include: { motorista: true },

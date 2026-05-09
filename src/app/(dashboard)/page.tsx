@@ -68,10 +68,12 @@ async function carregarDadosManutencao() {
     prisma.manutencao.findMany({
       where: { status: { in: ["aguardando", "em_andamento"] } },
       orderBy: { dataEntrada: "asc" },
+      take: 100,
       include: { veiculo: true, itens: true },
     }),
     prisma.manutencao.findMany({
       where: { status: "concluida", criadoEm: { gte: seismesesAtras } },
+      take: 200,
       include: { veiculo: true },
     }),
     prisma.alertaKm.findMany({
@@ -89,6 +91,11 @@ async function carregarDadosManutencao() {
     }),
     prisma.viagem.findMany({
       where: { dataSaida: { gte: seismesesAtras } },
+      // Cap defensivo: viagens dos últimos 6m podem virar milhares em
+      // produção e essa query roda a cada render do dashboard. Em escala,
+      // melhor agregar via SQL — fica como nota pro PR de perf futuro.
+      take: 1000,
+      orderBy: { dataSaida: "desc" },
       select: {
         veiculoId: true,
         kmInicial: true,
