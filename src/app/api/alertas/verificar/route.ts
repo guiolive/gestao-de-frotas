@@ -1,8 +1,16 @@
 import { prisma } from "@/lib/prisma";
 import { enviarEmailAlerta, enviarEmailManutencao } from "@/lib/email";
 import { calcularStatusBateria } from "@/lib/bateria";
+import { NextRequest } from "next/server";
+import { requireTipo } from "@/lib/authz";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  // Endpoint dispara e-mails em massa baseado no DB inteiro — restringir
+  // a ADMINISTRADOR evita abuso de SMTP por usuário comum. Quando houver
+  // job/cron real, trocar por um secret no header (CRON_SECRET) e liberar.
+  const [, authErr] = requireTipo(request, ["ADMINISTRADOR"]);
+  if (authErr) return authErr;
+
   // 1. Check KM-based alerts
   const alertas = await prisma.alertaKm.findMany({
     where: { ativo: true },

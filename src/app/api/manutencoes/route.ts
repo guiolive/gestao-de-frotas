@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
-import { requireAuth } from "@/lib/authz";
+import { requireAuth, requireSetor } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, manutencaoCreateSchema } from "@/lib/validation";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const [, authErr] = requireAuth(request);
+  if (authErr) return authErr;
+
   const manutencoes = await prisma.manutencao.findMany({
     orderBy: { criadoEm: "desc" },
     include: { veiculo: true, checklist: true, itens: true },
@@ -12,66 +16,65 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const [user, authErr] = requireAuth(request);
+  // Quem cria OS é gente do setor de Manutenção (CMAN, mecânicos) ou ADM.
+  // Operadores do setor TRANSPORTE não devem poder forçar veículo a ficar
+  // em manutenção.
+  const [user, authErr] = requireSetor(request, ["MANUTENCAO"]);
   if (authErr) return authErr;
 
-  const body = await request.json();
+  const [data, valErr] = await validateBody(request, manutencaoCreateSchema);
+  if (valErr) return valErr;
 
-  // Validate required fields
-  const required = ["veiculoId", "tipo", "descricao", "dataEntrada"];
-  for (const field of required) {
-    if (!body[field]) {
-      return Response.json(
-        { error: `Campo obrigatório: ${field}` },
-        { status: 400 }
-      );
-    }
-  }
+  const valorTotal = data.itens.reduce((acc, it) => acc + (it.valor ?? 0), 0);
 
-  // Calculate total from itens
-  const itens = body.itens || [];
-  const valorTotal = itens.reduce(
-    (acc: number, item: { valor: number }) => acc + (Number(item.valor) || 0),
-    0
-  );
-
-  // Transaction-like flow: create manutencao with checklist and itens, then update vehicle
-  const manutencao = await prisma.manutencao.create({
-    data: {
-      veiculoId: body.veiculoId,
-      tipo: body.tipo,
-      descricao: body.descricao,
-      dataEntrada: new Date(body.dataEntrada),
-      previsaoSaida: body.previsaoSaida ? new Date(body.previsaoSaida) : null,
-      previsaoDias: Number(body.previsaoDias) || 0,
-      custoEstimado: body.custoEstimado ? Number(body.custoEstimado) : null,
-      valorTotal: valorTotal > 0 ? valorTotal : null,
-      checklist: {
-        create: (body.checklist || []).map(
-          (item: { categoria: string; temProblema: boolean; descricao?: string }) => ({
-            categoria: item.categoria,
-            temProblema: item.temProblema,
-            descricao: item.descricao || null,
-          })
-        ),
+  // Atomic: criar OS + checklist + itens E mudar status do veículo. Sem
+  // transaction, um timeout no update do veículo deixa OS gravada com
+  // veículo ainda "disponivel".
+  const manutencao = await prisma.$transaction(async (tx) => {
+    const m = await tx.manutencao.create({
+      data: {
+        veiculoId: data.veiculoId,
+        oficinaId: data.oficinaId ?? null,
+        tipo: data.tipo,
+        descricao: data.descricao,
+        dataEntrada: data.dataEntrada,
+        previsaoSaida: data.previsaoSaida ?? null,
+        previsaoDias: data.previsaoDias,
+        custoEstimado: data.custoEstimado ?? null,
+        valorTotal: valorTotal > 0 ? valorTotal : null,
+        // OS sempre nasce como "pendente revisão CMAN" — representada
+        // tecnicamente pelo enum "aguardando" no schema. Cliente NÃO pode
+        // ditar o status inicial; transições posteriores (em_andamento,
+        // concluida, cancelada) acontecem via PUT após a revisão.
+        status: "aguardando",
+        enviadaPrimeEm: data.enviadaPrimeEm ?? null,
+        retornoEfetivoEm: data.retornoEfetivoEm ?? null,
+        checklist: {
+          create: data.checklist.map((c) => ({
+            categoria: c.categoria,
+            temProblema: c.temProblema,
+            descricao: c.descricao ?? null,
+          })),
+        },
+        itens: {
+          create: data.itens.map((it) => ({
+            servico: it.servico,
+            valor: it.valor,
+            observacao: it.observacao ?? null,
+            servicoRefId: it.servicoRefId ?? null,
+            pecaId: it.pecaId ?? null,
+          })),
+        },
       },
-      itens: {
-        create: itens.map(
-          (item: { servico: string; valor: number; observacao?: string }) => ({
-            servico: item.servico,
-            valor: Number(item.valor) || 0,
-            observacao: item.observacao || null,
-          })
-        ),
-      },
-    },
-    include: { checklist: true, itens: true },
-  });
+      include: { checklist: true, itens: true },
+    });
 
-  // Update vehicle status to manutencao
-  await prisma.veiculo.update({
-    where: { id: body.veiculoId },
-    data: { status: "manutencao" },
+    await tx.veiculo.update({
+      where: { id: data.veiculoId },
+      data: { status: "manutencao" },
+    });
+
+    return m;
   });
 
   await logAudit({

@@ -355,3 +355,78 @@ export const bateriaCreateSchema = z.object({
 export const bateriaUpdateSchema = bateriaCreateSchema.partial().extend({
   dataSubstituicao: z.coerce.date().optional().nullable(),
 });
+
+// ─────────────────────────────────────────────────────────
+// Manutenção (OS)
+// ─────────────────────────────────────────────────────────
+
+const checklistItemSchema = z.object({
+  categoria: z.string().trim().min(1).max(100),
+  temProblema: z.boolean().default(false),
+  descricao: z.string().trim().max(1000).optional().nullable(),
+});
+
+const itemManutencaoSchema = z.object({
+  servico: z.string().trim().min(1).max(200),
+  valor: z.coerce.number().nonnegative().default(0),
+  observacao: z.string().trim().max(1000).optional().nullable(),
+  servicoRefId: z.string().min(1).optional().nullable(),
+  pecaId: z.string().min(1).optional().nullable(),
+});
+
+// Status do ciclo de vida da OS. O `create` NÃO aceita status no input —
+// toda OS nasce como "aguardando" (= "pendente revisão CMAN") server-side.
+// Transições posteriores acontecem via PUT após revisão do CMAN.
+export const manutencaoStatusEnum = z.enum([
+  "aguardando",
+  "em_andamento",
+  "concluida",
+  "cancelada",
+]);
+
+export const manutencaoCreateSchema = z.object({
+  veiculoId: z.string().min(1, "Veículo é obrigatório"),
+  oficinaId: z.string().min(1).optional().nullable(),
+  tipo: z.enum(["preventiva", "corretiva"]),
+  descricao: z.string().trim().min(1, "Descrição é obrigatória").max(2000),
+  dataEntrada: z.coerce.date(),
+  previsaoSaida: z.coerce.date().optional().nullable(),
+  previsaoDias: z.coerce.number().int().nonnegative().default(0),
+  custoEstimado: z.coerce.number().nonnegative().optional().nullable(),
+  enviadaPrimeEm: z.coerce.date().optional().nullable(),
+  retornoEfetivoEm: z.coerce.date().optional().nullable(),
+  checklist: z.array(checklistItemSchema).max(200).default([]),
+  itens: z.array(itemManutencaoSchema).max(200).default([]),
+});
+
+// O update aceita status — é o caminho legítimo de transição após criação.
+export const manutencaoUpdateSchema = manutencaoCreateSchema.partial().extend({
+  status: manutencaoStatusEnum.optional(),
+});
+
+// ─────────────────────────────────────────────────────────
+// AlertaKm
+// ─────────────────────────────────────────────────────────
+
+// Reflete os tipos definidos no UI em (dashboard)/veiculos/[id]/editar/page.tsx
+// e os labels em (dashboard)/veiculos/[id]/page.tsx. Ao adicionar um tipo
+// novo, atualizar os 3 lugares.
+export const alertaKmTipoEnum = z.enum([
+  "troca_oleo",
+  "troca_pneus",
+  "revisao",
+  "alinhamento",
+  "filtro_ar",
+  "filtro_combustivel",
+  "correia_dentada",
+  "fluido_freio",
+  "fluido_arrefecimento",
+]);
+
+export const alertaKmCreateSchema = z.object({
+  tipo: alertaKmTipoEnum,
+  intervaloKm: z.coerce.number().nonnegative().max(1_000_000),
+  ultimaTrocaKm: z.coerce.number().nonnegative().default(0),
+  alertaAntesDe: z.coerce.number().nonnegative().max(100_000).default(1000),
+  emailGestor: z.string().trim().toLowerCase().email("E-mail inválido").max(200),
+});

@@ -12,15 +12,33 @@ function createPrismaClient() {
   if (!url) {
     throw new Error("DATABASE_URL não configurada");
   }
-  logger.info({ url: url.substring(0, 30) + "..." }, "prisma connecting");
+  // Loga apenas host/db pra evitar leak de credenciais em produção.
+  try {
+    const u = new URL(url);
+    logger.info(
+      { host: u.hostname, db: u.pathname.replace(/^\//, "") },
+      "prisma connecting"
+    );
+  } catch {
+    logger.info({}, "prisma connecting (url unparseable)");
+  }
 
-  const pool = new pg.Pool({ connectionString: url });
+  // Pool pequeno por instância: cada função serverless é isolada, e o Neon
+  // (pgbouncer) gerencia o pool real do lado do banco. Sem isso, dezenas de
+  // cold starts somam centenas de conexões e estouram o limite do Neon.
+  // `||` (não `??`) pra tratar string vazia como ausente: DATABASE_POOL_MAX=""
+  // resultaria em max:0 com `??`, bloqueando todas as conexões.
+  const pool = new pg.Pool({
+    connectionString: url,
+    max: Number(process.env.DATABASE_POOL_MAX) || 1,
+    idleTimeoutMillis: 10_000,
+  });
   const adapter = new PrismaPg(pool);
   return new PrismaClient({ adapter });
 }
 
+// Cacheia em globalThis SEMPRE — inclusive em produção. Sem isso, cada
+// reload de módulo (Next.js HMR em dev, hot module em serverless) abre um
+// pool novo, vazando conexões até saturar o Neon.
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+globalForPrisma.prisma = prisma;

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, alertaKmCreateSchema } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -23,16 +24,18 @@ export async function POST(
   if (authErr) return authErr;
 
   const { id } = params;
-  const body = await request.json();
+
+  const [data, valErr] = await validateBody(request, alertaKmCreateSchema);
+  if (valErr) return valErr;
 
   const alerta = await prisma.alertaKm.create({
     data: {
       veiculoId: id,
-      tipo: body.tipo,
-      intervaloKm: Number(body.intervaloKm),
-      ultimaTrocaKm: Number(body.ultimaTrocaKm) || 0,
-      alertaAntesDe: Number(body.alertaAntesDe) || 1000,
-      emailGestor: body.emailGestor,
+      tipo: data.tipo,
+      intervaloKm: data.intervaloKm,
+      ultimaTrocaKm: data.ultimaTrocaKm,
+      alertaAntesDe: data.alertaAntesDe,
+      emailGestor: data.emailGestor,
     },
   });
 

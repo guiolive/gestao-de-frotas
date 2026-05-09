@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, motoristaUpdateSchema } from "@/lib/validation";
 
 export async function GET(
   _request: NextRequest,
@@ -28,19 +29,39 @@ export async function PUT(
   if (authErr) return authErr;
 
   const { id } = params;
-  const body = await request.json();
+
+  const [data, valErr] = await validateBody(request, motoristaUpdateSchema);
+  if (valErr) return valErr;
+
+  // CPF/CNH são unique no schema. Sem checagem prévia, conflito vira 500
+  // cru com mensagem do Postgres ("duplicate key…"). Fail fast com 409.
+  if (data.cpf || data.cnh) {
+    const conflito = await prisma.motorista.findFirst({
+      where: {
+        AND: [
+          { id: { not: id } },
+          {
+            OR: [
+              ...(data.cpf ? [{ cpf: data.cpf }] : []),
+              ...(data.cnh ? [{ cnh: data.cnh }] : []),
+            ],
+          },
+        ],
+      },
+      select: { id: true, cpf: true, cnh: true },
+    });
+    if (conflito) {
+      const campo = conflito.cpf === data.cpf ? "CPF" : "CNH";
+      return Response.json(
+        { error: `${campo} já cadastrado para outro motorista.` },
+        { status: 409 }
+      );
+    }
+  }
 
   const motorista = await prisma.motorista.update({
     where: { id },
-    data: {
-      nome: body.nome,
-      cpf: body.cpf,
-      cnh: body.cnh,
-      categoriaCnh: body.categoriaCnh,
-      telefone: body.telefone,
-      email: body.email,
-      status: body.status,
-    },
+    data,
   });
 
   await logAudit({
