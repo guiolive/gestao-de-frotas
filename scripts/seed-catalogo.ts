@@ -303,7 +303,7 @@ const pecasMotor: PecaSeed[] = [
 // PEÇAS — embreagem e transmissão
 // ─────────────────────────────────────────────────────────────────────────
 const pecasTransmissao: PecaSeed[] = [
-  { nome: "Kit embreagem (carro popular)", descricao: "Disco + platô + rolamento", unidade: "JG", valorReferencia: 680 },
+  { nome: "Kit embreagem (carro popular)", unidade: "JG", valorReferencia: 680 },
   { nome: "Kit embreagem (sedan/suv)", unidade: "JG", valorReferencia: 1100 },
   { nome: "Kit embreagem (Hilux)", unidade: "JG", valorReferencia: 1850 },
   { nome: "Kit embreagem (Sprinter/Master)", unidade: "JG", valorReferencia: 2400 },
@@ -366,7 +366,7 @@ const pecasEscapamentoCarroceria: PecaSeed[] = [
   { nome: "Catalisador (carro flex)", unidade: "UN", valorReferencia: 1200 },
   { nome: "Silenciador traseiro", unidade: "UN", valorReferencia: 320 },
   { nome: "Coxim do escapamento", unidade: "UN", valorReferencia: 35 },
-  { nome: "Palheta do limpador (par)", descricao: "Item de troca eventual — fora da preventiva padrão", unidade: "JG", valorReferencia: 60 },
+  { nome: "Palheta do limpador (par)", unidade: "JG", valorReferencia: 60 },
   { nome: "Palheta do limpador traseiro", unidade: "UN", valorReferencia: 35 },
   { nome: "Farol dianteiro (unidade)", unidade: "UN", valorReferencia: 480 },
   { nome: "Lanterna traseira", unidade: "UN", valorReferencia: 280 },
