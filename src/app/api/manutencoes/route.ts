@@ -4,6 +4,7 @@ import { requireAuth, requireSetor } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, manutencaoCreateSchema } from "@/lib/validation";
 import { parsePagination, paginated } from "@/lib/pagination";
+import { validarAberturaOS, valorTotalDosItens } from "@/lib/manutencao";
 
 export async function GET(request: NextRequest) {
   const [, authErr] = requireAuth(request);
@@ -36,7 +37,20 @@ export async function POST(request: NextRequest) {
   const [data, valErr] = await validateBody(request, manutencaoCreateSchema);
   if (valErr) return valErr;
 
-  const valorTotal = data.itens.reduce((acc, it) => acc + (it.valor ?? 0), 0);
+  const veiculo = await prisma.veiculo.findUnique({
+    where: { id: data.veiculoId },
+    select: { status: true },
+  });
+  if (!veiculo) {
+    return Response.json({ error: "Veículo não encontrado" }, { status: 404 });
+  }
+  const abertura = validarAberturaOS(veiculo.status);
+  if (!abertura.ok) {
+    return Response.json(
+      { error: "Veículo inativo não pode receber OS", code: abertura.erro },
+      { status: 409 }
+    );
+  }
 
   // Atomic: criar OS + checklist + itens E mudar status do veículo. Sem
   // transaction, um timeout no update do veículo deixa OS gravada com
@@ -52,7 +66,7 @@ export async function POST(request: NextRequest) {
         previsaoSaida: data.previsaoSaida ?? null,
         previsaoDias: data.previsaoDias,
         custoEstimado: data.custoEstimado ?? null,
-        valorTotal: valorTotal > 0 ? valorTotal : null,
+        valorTotal: valorTotalDosItens(data.itens),
         // OS sempre nasce como "pendente revisão CMAN" — representada
         // tecnicamente pelo enum "aguardando" no schema. Cliente NÃO pode
         // ditar o status inicial; transições posteriores (em_andamento,

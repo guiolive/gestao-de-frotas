@@ -4,20 +4,15 @@ import StatusBadge from "@/components/StatusBadge";
 import { notFound } from "next/navigation";
 import { calcularIndicadoresFipe, THRESHOLD_ANTIECONOMICO_PCT } from "@/lib/fipe";
 import { calcularStatusBateria } from "@/lib/bateria";
+import { custoDaOS } from "@/lib/manutencao";
+import {
+  calcularAlertaKm,
+  kmMedioPorDia,
+  labelTipoAlerta,
+  proximoAlerta as escolherProximoAlerta,
+} from "@/lib/alertaKm";
 
 export const dynamic = "force-dynamic";
-
-const TIPOS_ALERTA: Record<string, string> = {
-  troca_oleo: "Troca de Óleo",
-  troca_pneus: "Troca de Pneus",
-  revisao: "Revisão Geral",
-  alinhamento: "Alinhamento e Balanceamento",
-  filtro_ar: "Filtro de Ar",
-  filtro_combustivel: "Filtro de Combustível",
-  correia_dentada: "Correia Dentada",
-  fluido_freio: "Fluido de Freio",
-  fluido_arrefecimento: "Fluido de Arrefecimento",
-};
 
 export default async function ConsultarVeiculoPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -51,16 +46,13 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
   if (!veiculo) return notFound();
 
   // Relatorio calculations
-  const custoTotalManutencao = veiculo.manutencoes.reduce(
-    (acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0),
-    0
-  );
+  const custoTotalManutencao = veiculo.manutencoes.reduce((acc, m) => acc + custoDaOS(m), 0);
   // Custo dos últimos 12 meses (usa dataEntrada da OS)
   const umAnoAtras = new Date();
   umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
   const custo12m = veiculo.manutencoes
     .filter((m) => new Date(m.dataEntrada) >= umAnoAtras)
-    .reduce((acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0), 0);
+    .reduce((acc, m) => acc + custoDaOS(m), 0);
 
   const indicFipe = calcularIndicadoresFipe({
     valorFipe: veiculo.valorFipe,
@@ -81,26 +73,16 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
   const percentualValor = valorVeiculo > 0 ? (custoTotalManutencao / valorVeiculo) * 100 : 0;
   const custoPorKm = kmRodado > 0 ? custoTotalManutencao / kmRodado : 0;
 
-  // KM médio/dia para projeção
-  const viagensComKm = veiculo.viagens.filter((v) => v.kmFinal && v.kmInicial);
-  let kmMedioDia = 0;
-  if (viagensComKm.length >= 2) {
-    const kmTotal = viagensComKm.reduce((acc, v) => acc + ((v.kmFinal || 0) - v.kmInicial), 0);
-    const datasViagens = viagensComKm.map((v) => new Date(v.dataSaida).getTime());
-    const primeiraDia = new Date(Math.min(...datasViagens));
-    const dias = Math.max(1, Math.floor((Date.now() - primeiraDia.getTime()) / (1000 * 60 * 60 * 24)));
-    kmMedioDia = Math.round((kmTotal / dias) * 10) / 10;
-  }
+  // KM médio/dia para projeção (cru; arredonda só na exibição)
+  const agora = new Date();
+  const kmMedioDia = kmMedioPorDia(veiculo.viagens, agora);
+  const kmMedioDiaExibicao = Math.round(kmMedioDia * 10) / 10;
 
-  // Find closest alert
-  const alertasComKm = veiculo.alertasKm.map((a) => {
-    const kmProxima = a.ultimaTrocaKm + a.intervaloKm;
-    const kmRestante = kmProxima - veiculo.quilometragem;
-    return { ...a, kmProxima, kmRestante };
-  });
-  const proximoAlerta = alertasComKm
-    .filter((a) => a.kmRestante > 0)
-    .sort((a, b) => a.kmRestante - b.kmRestante)[0];
+  const alertasComKm = veiculo.alertasKm.map((a) => ({
+    ...a,
+    ...calcularAlertaKm(a, veiculo.quilometragem, { kmMedioDia, hoje: agora }),
+  }));
+  const proximoAlerta = escolherProximoAlerta(veiculo.alertasKm, veiculo.quilometragem);
 
   return (
     <div className="max-w-5xl">
@@ -137,10 +119,12 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-sm text-gray-500">Próxima Revisão</p>
           {proximoAlerta ? (
-            <p className="text-lg font-bold text-gray-900">
-              {TIPOS_ALERTA[proximoAlerta.tipo] || proximoAlerta.tipo}
+            <p className={`text-lg font-bold ${proximoAlerta.status === "vencido" ? "text-red-600" : "text-gray-900"}`}>
+              {labelTipoAlerta(proximoAlerta.tipo)}
               <span className="text-sm font-normal text-gray-500 ml-2">
-                {Math.max(0, proximoAlerta.kmRestante).toLocaleString("pt-BR")} km restantes
+                {proximoAlerta.status === "vencido"
+                  ? `${Math.abs(proximoAlerta.kmRestante).toLocaleString("pt-BR")} km além`
+                  : `${proximoAlerta.kmRestante.toLocaleString("pt-BR")} km restantes`}
               </span>
             </p>
           ) : (
@@ -155,7 +139,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
           <p className="text-sm text-gray-500">KM Rodado</p>
           <p className="text-xl font-bold text-gray-900">{kmRodado.toLocaleString("pt-BR")} km</p>
           {kmMedioDia > 0 && (
-            <p className="text-xs text-gray-400 mt-1">{kmMedioDia} km/dia média</p>
+            <p className="text-xs text-gray-400 mt-1">{kmMedioDiaExibicao} km/dia média</p>
           )}
           {custoPorKm > 0 && (
             <p className="text-xs text-gray-400">R$ {custoPorKm.toFixed(2)}/km</p>
@@ -453,7 +437,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {veiculo.manutencoes.map((m) => {
-                  const custo = m.itens.reduce((a, i) => a + i.valor, 0);
+                  const custo = custoDaOS(m);
                   return (
                     <tr key={m.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-700">
@@ -516,26 +500,18 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Alertas de KM</h2>
           <div className="space-y-3">
             {alertasComKm.map((a) => {
-              const urgente = a.kmRestante <= a.alertaAntesDe;
-              const vencido = a.kmRestante <= 0;
-              // Projeção de data
-              let dataEstimada: string | null = null;
-              if (kmMedioDia > 0 && a.kmRestante > 0) {
-                const diasAte = Math.ceil(a.kmRestante / kmMedioDia);
-                const data = new Date();
-                data.setDate(data.getDate() + diasAte);
-                dataEstimada = data.toLocaleDateString("pt-BR");
-              }
+              const urgente = a.status !== "ok";
+              const vencido = a.status === "vencido";
               return (
                 <div key={a.id} className={`flex items-center justify-between p-4 rounded-lg border ${vencido ? "border-red-400 bg-red-50" : urgente ? "border-yellow-300 bg-yellow-50" : "border-gray-200"}`}>
                   <div>
-                    <p className="font-medium text-gray-900">{TIPOS_ALERTA[a.tipo] || a.tipo}</p>
+                    <p className="font-medium text-gray-900">{labelTipoAlerta(a.tipo)}</p>
                     <p className="text-sm text-gray-500">
                       A cada {a.intervaloKm.toLocaleString("pt-BR")} km | Próxima: {a.kmProxima.toLocaleString("pt-BR")} km
                     </p>
-                    {dataEstimada && (
+                    {a.dataEstimada && (
                       <p className="text-xs text-blue-600 mt-1">
-                        Previsão: {dataEstimada} ({Math.ceil(a.kmRestante / kmMedioDia)} dias)
+                        Previsão: {a.dataEstimada.toLocaleDateString("pt-BR")} ({a.diasEstimados} dias)
                       </p>
                     )}
                   </div>

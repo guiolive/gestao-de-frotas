@@ -2,6 +2,7 @@
 
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { calcularAlertaKm, labelTipoAlerta, TIPOS_ALERTA } from "@/lib/alertaKm";
 
 interface Veiculo {
   id: string;
@@ -47,18 +48,6 @@ interface Bateria {
   dataSubstituicao: string | null;
   observacao: string | null;
 }
-
-const TIPOS_ALERTA = [
-  { value: "troca_oleo", label: "Troca de Óleo" },
-  { value: "troca_pneus", label: "Troca de Pneus" },
-  { value: "revisao", label: "Revisão Geral" },
-  { value: "alinhamento", label: "Alinhamento e Balanceamento" },
-  { value: "filtro_ar", label: "Filtro de Ar" },
-  { value: "filtro_combustivel", label: "Filtro de Combustível" },
-  { value: "correia_dentada", label: "Correia Dentada" },
-  { value: "fluido_freio", label: "Fluido de Freio" },
-  { value: "fluido_arrefecimento", label: "Fluido de Arrefecimento" },
-];
 
 export default function EditarVeiculoPage() {
   const router = useRouter();
@@ -494,10 +483,9 @@ export default function EditarVeiculoPage() {
             ) : (
               <div className="space-y-3">
                 {alertas.map((a) => {
-                  const tipoLabel = TIPOS_ALERTA.find((t) => t.value === a.tipo)?.label || a.tipo;
-                  const kmProxima = a.ultimaTrocaKm + a.intervaloKm;
-                  const kmRestante = kmProxima - (veiculo?.quilometragem || 0);
-                  const urgente = kmRestante <= a.alertaAntesDe;
+                  const tipoLabel = labelTipoAlerta(a.tipo);
+                  const { kmProxima, kmRestante, status } = calcularAlertaKm(a, veiculo?.quilometragem || 0);
+                  const urgente = status !== "ok";
                   return (
                     <div key={a.id} className={`flex items-center justify-between p-4 rounded-lg border ${urgente ? "border-red-300 bg-red-50" : "border-gray-200"}`}>
                       <div>

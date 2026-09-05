@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { proximoAlerta } from "@/lib/alertaKm";
+import { custoDaOS } from "@/lib/manutencao";
 
 export async function GET(
   request: NextRequest,
@@ -28,10 +30,7 @@ export async function GET(
   }
 
   // Custo total de manutencao
-  const custoTotalManutencao = veiculo.manutencoes.reduce((acc, m) => {
-    const custoItens = m.itens.reduce((a, i) => a + i.valor, 0);
-    return acc + (custoItens > 0 ? custoItens : m.valorTotal || 0);
-  }, 0);
+  const custoTotalManutencao = veiculo.manutencoes.reduce((acc, m) => acc + custoDaOS(m), 0);
 
   // Custo no periodo (filtrado)
   let custoNoPeriodo = custoTotalManutencao;
@@ -40,10 +39,7 @@ export async function GET(
     const fim = dataFim ? new Date(dataFim) : new Date("2999-12-31");
     custoNoPeriodo = veiculo.manutencoes
       .filter((m) => m.dataEntrada >= inicio && m.dataEntrada <= fim)
-      .reduce((acc, m) => {
-        const custoItens = m.itens.reduce((a, i) => a + i.valor, 0);
-        return acc + (custoItens > 0 ? custoItens : m.valorTotal || 0);
-      }, 0);
+      .reduce((acc, m) => acc + custoDaOS(m), 0);
   }
 
   // Percentual sobre valor do veiculo
@@ -60,23 +56,15 @@ export async function GET(
 
   // Proxima revisao (alerta mais proximo)
   const alertasAtivos = veiculo.alertasKm.filter((a) => a.ativo);
-  let proximaRevisao = null;
-  if (alertasAtivos.length > 0) {
-    const kmAtual = veiculo.quilometragem;
-    let menorDiff = Infinity;
-    for (const alerta of alertasAtivos) {
-      const kmProxima = alerta.ultimaTrocaKm + alerta.intervaloKm;
-      const diff = kmProxima - kmAtual;
-      if (diff < menorDiff) {
-        menorDiff = diff;
-        proximaRevisao = {
-          tipo: alerta.tipo,
-          kmFaltando: Math.max(0, diff),
-          kmProxima,
-        };
+  const proximo = proximoAlerta(alertasAtivos, veiculo.quilometragem);
+  const proximaRevisao = proximo
+    ? {
+        tipo: proximo.tipo,
+        kmFaltando: Math.max(0, proximo.kmRestante),
+        kmProxima: proximo.kmProxima,
+        status: proximo.status,
       }
-    }
-  }
+    : null;
 
   // Viagens
   const viagensConcluidas = veiculo.viagens.filter(
@@ -90,14 +78,13 @@ export async function GET(
 
   // Historico manutencoes
   const historicoManutencoes = veiculo.manutencoes.map((m) => {
-    const custoItens = m.itens.reduce((a, i) => a + i.valor, 0);
     return {
       id: m.id,
       tipo: m.tipo,
       descricao: m.descricao,
       dataEntrada: m.dataEntrada,
       status: m.status,
-      custo: custoItens > 0 ? custoItens : m.valorTotal || 0,
+      custo: custoDaOS(m),
       itens: m.itens,
     };
   });

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { custoDaOS } from "@/lib/manutencao";
 
 export const dynamic = "force-dynamic";
 
@@ -50,10 +51,7 @@ export default async function VeiculosPage() {
               </tr>
             )}
             {veiculos.map((v) => {
-              const custoTotal = v.manutencoes.reduce(
-                (acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0),
-                0
-              );
+              const custoTotal = v.manutencoes.reduce((acc, m) => acc + custoDaOS(m), 0);
               return (
                 <tr key={v.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 font-medium text-gray-900">

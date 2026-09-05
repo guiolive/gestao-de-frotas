@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { validateBody, manutencaoUpdateSchema } from "@/lib/validation";
+import { planejarAtualizacao, STATUS_OS_ABERTOS } from "@/lib/manutencao";
 
 export async function GET(
   request: NextRequest,
@@ -38,39 +39,35 @@ export async function PUT(
 
   const current = await prisma.manutencao.findUnique({
     where: { id },
-    select: { id: true, veiculoId: true, previsaoSaida: true },
+    select: { id: true, veiculoId: true, status: true, previsaoSaida: true },
   });
   if (!current) {
     return Response.json({ error: "Manutenção não encontrada" }, { status: 404 });
   }
 
-  // Patch parcial: só os campos enviados entram no update.
-  const updateData: Record<string, unknown> = {};
-  if (data.tipo !== undefined) updateData.tipo = data.tipo;
-  if (data.descricao !== undefined) updateData.descricao = data.descricao;
-  if (data.dataEntrada !== undefined) updateData.dataEntrada = data.dataEntrada;
-  if (data.previsaoDias !== undefined) updateData.previsaoDias = data.previsaoDias;
-  if (data.custoEstimado !== undefined) updateData.custoEstimado = data.custoEstimado ?? null;
-  if (data.status !== undefined) updateData.status = data.status;
-  if (data.oficinaId !== undefined) updateData.oficinaId = data.oficinaId ?? null;
-  if (data.enviadaPrimeEm !== undefined) updateData.enviadaPrimeEm = data.enviadaPrimeEm ?? null;
-  if (data.retornoEfetivoEm !== undefined) updateData.retornoEfetivoEm = data.retornoEfetivoEm ?? null;
+  // Outras OS abertas do mesmo veículo: concluir/cancelar esta só libera o
+  // veículo se não sobrar nenhuma.
+  const outrasAbertas = await prisma.manutencao.count({
+    where: {
+      veiculoId: current.veiculoId,
+      id: { not: id },
+      status: { in: [...STATUS_OS_ABERTOS] },
+    },
+  });
 
-  if (data.previsaoSaida !== undefined) {
-    const novaPrevisao = data.previsaoSaida ?? null;
-    updateData.previsaoSaida = novaPrevisao;
-    // Marca o timestamp da mudança quando o valor difere do atual — alimenta
-    // o feed de "novidades da oficina" no painel de transporte.
-    const atualMs = current.previsaoSaida ? new Date(current.previsaoSaida).getTime() : null;
-    const novaMs = novaPrevisao ? novaPrevisao.getTime() : null;
-    if (atualMs !== novaMs) {
-      updateData.previsaoSaidaAtualizadaEm = new Date();
-    }
-  }
-
-  if (data.itens !== undefined) {
-    const valorTotal = data.itens.reduce((acc, it) => acc + (it.valor ?? 0), 0);
-    updateData.valorTotal = valorTotal > 0 ? valorTotal : null;
+  // Toda decisão (patch parcial, valorTotal, carimbo de previsão, transição
+  // de status e efeito no veículo) é do módulo; aqui só I/O.
+  const plano = planejarAtualizacao(current, data, { agora: new Date(), outrasAbertas });
+  if (!plano.ok) {
+    return Response.json(
+      {
+        error: `Transição de status inválida: ${plano.de} → ${plano.para}`,
+        code: plano.erro,
+        de: plano.de,
+        para: plano.para,
+      },
+      { status: 409 }
+    );
   }
 
   // Tudo dentro de uma única transação: update da manutenção, recriação
@@ -78,13 +75,13 @@ export async function PUT(
   // veículo. Sem $transaction, qualquer falha no meio deixa OS órfã ou
   // veículo com status divergente.
   const updated = await prisma.$transaction(async (tx) => {
-    await tx.manutencao.update({ where: { id }, data: updateData });
+    await tx.manutencao.update({ where: { id }, data: plano.manutencao });
 
-    if (data.checklist !== undefined) {
+    if (plano.checklist !== undefined) {
       await tx.checklistItem.deleteMany({ where: { manutencaoId: id } });
-      if (data.checklist.length > 0) {
+      if (plano.checklist.length > 0) {
         await tx.checklistItem.createMany({
-          data: data.checklist.map((c) => ({
+          data: plano.checklist.map((c) => ({
             manutencaoId: id,
             categoria: c.categoria,
             temProblema: c.temProblema,
@@ -94,11 +91,11 @@ export async function PUT(
       }
     }
 
-    if (data.itens !== undefined) {
+    if (plano.itens !== undefined) {
       await tx.itemManutencao.deleteMany({ where: { manutencaoId: id } });
-      if (data.itens.length > 0) {
+      if (plano.itens.length > 0) {
         await tx.itemManutencao.createMany({
-          data: data.itens.map((it) => ({
+          data: plano.itens.map((it) => ({
             manutencaoId: id,
             servico: it.servico,
             valor: it.valor,
@@ -110,18 +107,12 @@ export async function PUT(
       }
     }
 
-    // Regra de negócio: status da manutenção dita status do veículo, MAS
-    // veículo soft-deletado (status="inativo") nunca volta sozinho — usar
-    // updateMany com guard pra não reativar inativos sem ação explícita.
-    if (data.status === "concluida" || data.status === "cancelada") {
+    // Veículo soft-deletado (status="inativo") nunca volta sozinho — guard
+    // de I/O via updateMany, pra não reativar inativos sem ação explícita.
+    if (plano.veiculo) {
       await tx.veiculo.updateMany({
         where: { id: current.veiculoId, status: { not: "inativo" } },
-        data: { status: "disponivel" },
-      });
-    } else if (data.status === "aguardando" || data.status === "em_andamento") {
-      await tx.veiculo.updateMany({
-        where: { id: current.veiculoId, status: { not: "inativo" } },
-        data: { status: "manutencao" },
+        data: { status: plano.veiculo },
       });
     }
 
@@ -137,7 +128,7 @@ export async function PUT(
     acao: "update",
     recurso: "manutencao",
     recursoId: id,
-    dados: { status: data.status, ...updateData },
+    dados: { status: data.status, ...plano.manutencao, veiculo: plano.veiculo },
   });
 
   return Response.json(updated);

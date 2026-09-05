@@ -19,6 +19,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verificarToken } from "@/lib/jwt";
 import { diasDoMes, inicioDoMes, fimDoMes } from "@/lib/calendario";
+import { calcularAlertaKm, kmMedioPorDia } from "@/lib/alertaKm";
+import { custoDaOS, prazoDaOS, STATUS_OS_ABERTOS } from "@/lib/manutencao";
 import DashboardManutencao from "@/components/dashboard/DashboardManutencao";
 import DashboardTransporte from "@/components/dashboard/DashboardTransporte";
 import DashboardViewSwitcher from "@/components/dashboard/DashboardViewSwitcher";
@@ -66,7 +68,7 @@ async function carregarDadosManutencao() {
     prisma.veiculo.count({ where: { status: "manutencao" } }),
     prisma.veiculo.count({ where: { status: "inativo" } }),
     prisma.manutencao.findMany({
-      where: { status: { in: ["aguardando", "em_andamento"] } },
+      where: { status: { in: [...STATUS_OS_ABERTOS] } },
       orderBy: { dataEntrada: "asc" },
       take: 100,
       include: { veiculo: true, itens: true },
@@ -116,8 +118,9 @@ async function carregarDadosManutencao() {
     .map((m) => {
       const diasNaOficina = diasEntre(new Date(m.dataEntrada), new Date());
       const previsaoSaida = m.previsaoSaida ? new Date(m.previsaoSaida) : null;
-      const diasRestantes = previsaoSaida ? diasEntre(new Date(), previsaoSaida) : 999;
-      const custo = m.itens.reduce((a, i) => a + i.valor, 0);
+      // Sem previsão vai pro fim da fila do semáforo.
+      const diasRestantes = prazoDaOS(m).diasRestantes ?? 999;
+      const custo = custoDaOS(m);
       return { ...m, diasNaOficina, diasRestantes, custo, previsaoSaida };
     })
     .sort((a, b) => a.diasRestantes - b.diasRestantes);
@@ -126,41 +129,31 @@ async function carregarDadosManutencao() {
     (m) => m.diasRestantes < 0
   );
 
+  const agora = new Date();
+  const kmMedioPorVeiculo = new Map<string, number>();
   const alertasUrgentes = alertasAtivos
     .map((a) => {
       const kmAtual = a.veiculo.quilometragem;
-      const kmProximaTroca = a.ultimaTrocaKm + a.intervaloKm;
-      const kmRestante = kmProximaTroca - kmAtual;
-      const kmParaAlerta = kmProximaTroca - a.alertaAntesDe;
-      const precisaAtencao = kmAtual >= kmParaAlerta;
-
-      const viagensVeiculo = viagensRecentes.filter(
-        (v) => v.veiculoId === a.veiculoId && v.kmFinal && v.kmInicial
-      );
-      let kmMedioDia = 0;
-      let dataEstimada: Date | null = null;
-      if (viagensVeiculo.length >= 2) {
-        const kmTotal = viagensVeiculo.reduce(
-          (acc, v) => acc + ((v.kmFinal || 0) - v.kmInicial),
-          0
+      let kmMedioDia = kmMedioPorVeiculo.get(a.veiculoId);
+      if (kmMedioDia === undefined) {
+        kmMedioDia = kmMedioPorDia(
+          viagensRecentes.filter((v) => v.veiculoId === a.veiculoId),
+          agora
         );
-        const primeiraViagem = new Date(
-          Math.min(...viagensVeiculo.map((v) => new Date(v.dataSaida).getTime()))
-        );
-        const dias = Math.max(1, diasEntre(primeiraViagem, new Date()));
-        kmMedioDia = kmTotal / dias;
-        if (kmMedioDia > 0 && kmRestante > 0) {
-          const diasAteProxima = Math.ceil(kmRestante / kmMedioDia);
-          dataEstimada = new Date();
-          dataEstimada.setDate(dataEstimada.getDate() + diasAteProxima);
-        }
+        kmMedioPorVeiculo.set(a.veiculoId, kmMedioDia);
       }
+      const { kmProxima, kmRestante, status, dataEstimada } = calcularAlertaKm(
+        a,
+        kmAtual,
+        { kmMedioDia, hoje: agora }
+      );
       return {
         ...a,
         kmAtual,
-        kmProximaTroca,
+        kmProximaTroca: kmProxima,
         kmRestante,
-        precisaAtencao,
+        status,
+        precisaAtencao: status !== "ok",
         kmMedioDia: Math.round(kmMedioDia * 10) / 10,
         dataEstimada,
       };

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { situacaoPrime, STATUS_OS_ABERTOS } from "@/lib/manutencao";
 
 export const dynamic = "force-dynamic";
 
@@ -27,23 +28,20 @@ export default async function PrimeDashboardPage() {
   const aguardandoEnvio = await prisma.manutencao.findMany({
     where: {
       enviadaPrimeEm: null,
-      status: { in: ["aguardando", "em_andamento"] },
+      status: { in: [...STATUS_OS_ABERTOS] },
     },
     include: { veiculo: true, oficina: true },
     orderBy: { dataEntrada: "asc" },
   });
 
-  const atrasadas = emPrime.filter(
-    (m) => m.previsaoSaida && new Date(m.previsaoSaida) < hoje
-  );
-  const noPrazo = emPrime.filter(
-    (m) => !m.previsaoSaida || new Date(m.previsaoSaida) >= hoje
-  );
+  const atrasadas = emPrime.filter((m) => situacaoPrime(m, hoje).emAtraso);
+  const noPrazo = emPrime.filter((m) => !situacaoPrime(m, hoje).emAtraso);
 
-  const diasAtraso = (m: { previsaoSaida: Date | null }) =>
-    m.previsaoSaida
-      ? Math.floor((hoje.getTime() - new Date(m.previsaoSaida).getTime()) / 86400000)
-      : 0;
+  const diasAtraso = (m: {
+    enviadaPrimeEm: Date | null;
+    retornoEfetivoEm: Date | null;
+    previsaoSaida: Date | null;
+  }) => situacaoPrime(m, hoje).diasAtraso;
 
   return (
     <div>
@@ -105,6 +103,7 @@ interface ManutencaoRow {
   dataEntrada: Date;
   previsaoSaida: Date | null;
   enviadaPrimeEm: Date | null;
+  retornoEfetivoEm: Date | null;
   status: string;
   descricao: string;
   veiculo: { id: string; placa: string; marca: string; modelo: string };

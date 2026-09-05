@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { enviarEmailAlerta, enviarEmailManutencao } from "@/lib/email";
 import { calcularStatusBateria } from "@/lib/bateria";
+import { calcularAlertaKm } from "@/lib/alertaKm";
+import { prazoDaOS, STATUS_OS_ABERTOS } from "@/lib/manutencao";
 import { NextRequest } from "next/server";
 import { requireTipo } from "@/lib/authz";
 
@@ -21,10 +23,9 @@ export async function POST(request: NextRequest) {
 
   for (const alerta of alertas) {
     const kmAtual = alerta.veiculo.quilometragem;
-    const kmProximaTroca = alerta.ultimaTrocaKm + alerta.intervaloKm;
-    const kmParaAlerta = kmProximaTroca - alerta.alertaAntesDe;
+    const { kmProxima: kmProximaTroca, status } = calcularAlertaKm(alerta, kmAtual);
 
-    if (kmAtual >= kmParaAlerta) {
+    if (status !== "ok") {
       const resultado = await enviarEmailAlerta({
         para: alerta.emailGestor,
         veiculo: {
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
 
   const manutencoesAtrasadas = await prisma.manutencao.findMany({
     where: {
-      status: { in: ["aguardando", "em_andamento"] },
+      status: { in: [...STATUS_OS_ABERTOS] },
       previsaoSaida: { lte: amanha },
     },
     include: { veiculo: true },
@@ -69,8 +70,7 @@ export async function POST(request: NextRequest) {
         ? new Date(m.previsaoSaida).toLocaleDateString("pt-BR")
         : null;
 
-      const isAtrasada = m.previsaoSaida && new Date(m.previsaoSaida) < hoje;
-      const statusLabel = isAtrasada ? "ATRASADA" : m.status;
+      const statusLabel = prazoDaOS(m, hoje).atrasada ? "ATRASADA" : m.status;
 
       const resultado = await enviarEmailManutencao({
         para: emailGestor,

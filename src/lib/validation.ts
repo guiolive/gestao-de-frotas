@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { alertaKmTipoEnum } from "./alertaKm";
+import { manutencaoStatusEnum } from "./manutencao";
 
 /**
  * Helper to validate request body against a Zod schema.
@@ -374,15 +376,9 @@ const itemManutencaoSchema = z.object({
   pecaId: z.string().min(1).optional().nullable(),
 });
 
-// Status do ciclo de vida da OS. O `create` NÃO aceita status no input —
-// toda OS nasce como "aguardando" (= "pendente revisão CMAN") server-side.
-// Transições posteriores acontecem via PUT após revisão do CMAN.
-export const manutencaoStatusEnum = z.enum([
-  "aguardando",
-  "em_andamento",
-  "concluida",
-  "cancelada",
-]);
+// Status do ciclo de vida da OS: enum e transições moram em lib/manutencao.ts.
+// O `create` NÃO aceita status — toda OS nasce "aguardando" server-side.
+export { manutencaoStatusEnum } from "./manutencao";
 
 export const manutencaoCreateSchema = z.object({
   veiculoId: z.string().min(1, "Veículo é obrigatório"),
@@ -408,20 +404,8 @@ export const manutencaoUpdateSchema = manutencaoCreateSchema.partial().extend({
 // AlertaKm
 // ─────────────────────────────────────────────────────────
 
-// Reflete os tipos definidos no UI em (dashboard)/veiculos/[id]/editar/page.tsx
-// e os labels em (dashboard)/veiculos/[id]/page.tsx. Ao adicionar um tipo
-// novo, atualizar os 3 lugares.
-export const alertaKmTipoEnum = z.enum([
-  "troca_oleo",
-  "troca_pneus",
-  "revisao",
-  "alinhamento",
-  "filtro_ar",
-  "filtro_combustivel",
-  "correia_dentada",
-  "fluido_freio",
-  "fluido_arrefecimento",
-]);
+// O enum de tipos e os labels moram em lib/alertaKm.ts (dono do conceito).
+export { alertaKmTipoEnum } from "./alertaKm";
 
 export const alertaKmCreateSchema = z.object({
   tipo: alertaKmTipoEnum,

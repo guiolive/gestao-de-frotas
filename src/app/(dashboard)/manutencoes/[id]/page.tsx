@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import AcoesManutencao from "./AcoesManutencao";
+import { custoDaOS, situacaoPrime } from "@/lib/manutencao";
 
 export const dynamic = "force-dynamic";
 
@@ -41,20 +42,10 @@ export default async function DetalhesManutencaoPage({
   if (!manutencao) return notFound();
 
   const problemas = manutencao.checklist.filter((c) => c.temProblema);
-  const valorTotalItens = manutencao.itens.reduce((acc, i) => acc + i.valor, 0);
+  const valorTotalItens = custoDaOS(manutencao);
 
   // Status Prime / atraso
-  const hoje = new Date();
-  const previsao = manutencao.previsaoSaida
-    ? new Date(manutencao.previsaoSaida)
-    : null;
-  const enviada = !!manutencao.enviadaPrimeEm;
-  const retornou = !!manutencao.retornoEfetivoEm;
-  const emAtraso = enviada && !retornou && !!previsao && previsao < hoje;
-  const diasAtraso =
-    emAtraso && previsao
-      ? Math.floor((hoje.getTime() - previsao.getTime()) / 86400000)
-      : 0;
+  const { enviada, retornou, emAtraso, diasAtraso } = situacaoPrime(manutencao);
   const oficinaAtual = oficinas.find((o) => o.id === manutencao.oficinaId) || null;
 
   return (

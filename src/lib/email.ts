@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { logger } from "./logger";
+import { labelTipoAlerta } from "./alertaKm";
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -19,20 +20,8 @@ interface EmailAlerta {
   kmProximaTroca: number;
 }
 
-const TIPO_LABELS: Record<string, string> = {
-  troca_oleo: "Troca de Óleo",
-  troca_pneus: "Troca de Pneus",
-  revisao: "Revisão Geral",
-  alinhamento: "Alinhamento e Balanceamento",
-  filtro_ar: "Troca de Filtro de Ar",
-  filtro_combustivel: "Troca de Filtro de Combustível",
-  correia_dentada: "Troca de Correia Dentada",
-  fluido_freio: "Troca de Fluido de Freio",
-  fluido_arrefecimento: "Troca de Fluido de Arrefecimento",
-};
-
 export async function enviarEmailAlerta(dados: EmailAlerta) {
-  const tipoLabel = TIPO_LABELS[dados.tipoAlerta] || dados.tipoAlerta;
+  const tipoLabel = labelTipoAlerta(dados.tipoAlerta);
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">

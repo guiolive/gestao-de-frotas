@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { STATUS_OS_ABERTOS } from "@/lib/manutencao";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
@@ -124,7 +125,7 @@ export async function POST(request: NextRequest) {
   const conflictingMaintenance = await prisma.manutencao.findFirst({
     where: {
       veiculoId: body.veiculoId,
-      status: { in: ["aguardando", "em_andamento"] },
+      status: { in: [...STATUS_OS_ABERTOS] },
       dataEntrada: { lte: body.dataRetorno ? new Date(body.dataRetorno) : dataSaida },
       OR: [
         { previsaoSaida: null },
