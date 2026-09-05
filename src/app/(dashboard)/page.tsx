@@ -20,6 +20,7 @@ import { prisma } from "@/lib/prisma";
 import { verificarToken } from "@/lib/jwt";
 import { diasDoMes, inicioDoMes, fimDoMes } from "@/lib/calendario";
 import { calcularAlertaKm, kmMedioPorDia } from "@/lib/alertaKm";
+import { custoDaOS, prazoDaOS, STATUS_OS_ABERTOS } from "@/lib/manutencao";
 import DashboardManutencao from "@/components/dashboard/DashboardManutencao";
 import DashboardTransporte from "@/components/dashboard/DashboardTransporte";
 import DashboardViewSwitcher from "@/components/dashboard/DashboardViewSwitcher";
@@ -67,7 +68,7 @@ async function carregarDadosManutencao() {
     prisma.veiculo.count({ where: { status: "manutencao" } }),
     prisma.veiculo.count({ where: { status: "inativo" } }),
     prisma.manutencao.findMany({
-      where: { status: { in: ["aguardando", "em_andamento"] } },
+      where: { status: { in: [...STATUS_OS_ABERTOS] } },
       orderBy: { dataEntrada: "asc" },
       take: 100,
       include: { veiculo: true, itens: true },
@@ -117,8 +118,9 @@ async function carregarDadosManutencao() {
     .map((m) => {
       const diasNaOficina = diasEntre(new Date(m.dataEntrada), new Date());
       const previsaoSaida = m.previsaoSaida ? new Date(m.previsaoSaida) : null;
-      const diasRestantes = previsaoSaida ? diasEntre(new Date(), previsaoSaida) : 999;
-      const custo = m.itens.reduce((a, i) => a + i.valor, 0);
+      // Sem previsão vai pro fim da fila do semáforo.
+      const diasRestantes = prazoDaOS(m).diasRestantes ?? 999;
+      const custo = custoDaOS(m);
       return { ...m, diasNaOficina, diasRestantes, custo, previsaoSaida };
     })
     .sort((a, b) => a.diasRestantes - b.diasRestantes);

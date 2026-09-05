@@ -4,6 +4,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { notFound } from "next/navigation";
 import { calcularIndicadoresFipe, THRESHOLD_ANTIECONOMICO_PCT } from "@/lib/fipe";
 import { calcularStatusBateria } from "@/lib/bateria";
+import { custoDaOS } from "@/lib/manutencao";
 import {
   calcularAlertaKm,
   kmMedioPorDia,
@@ -45,16 +46,13 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
   if (!veiculo) return notFound();
 
   // Relatorio calculations
-  const custoTotalManutencao = veiculo.manutencoes.reduce(
-    (acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0),
-    0
-  );
+  const custoTotalManutencao = veiculo.manutencoes.reduce((acc, m) => acc + custoDaOS(m), 0);
   // Custo dos últimos 12 meses (usa dataEntrada da OS)
   const umAnoAtras = new Date();
   umAnoAtras.setFullYear(umAnoAtras.getFullYear() - 1);
   const custo12m = veiculo.manutencoes
     .filter((m) => new Date(m.dataEntrada) >= umAnoAtras)
-    .reduce((acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0), 0);
+    .reduce((acc, m) => acc + custoDaOS(m), 0);
 
   const indicFipe = calcularIndicadoresFipe({
     valorFipe: veiculo.valorFipe,
@@ -439,7 +437,7 @@ export default async function ConsultarVeiculoPage({ params }: { params: { id: s
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {veiculo.manutencoes.map((m) => {
-                  const custo = m.itens.reduce((a, i) => a + i.valor, 0);
+                  const custo = custoDaOS(m);
                   return (
                     <tr key={m.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 text-sm text-gray-700">

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import StatusBadge from "@/components/StatusBadge";
+import { custoDaOS } from "@/lib/manutencao";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,7 @@ export default async function ManutencoesPage({
     include: { veiculo: true, checklist: true, itens: true },
   });
 
-  const custoTotalGeral = manutencoes.reduce(
-    (acc, m) => acc + m.itens.reduce((a, i) => a + i.valor, 0),
-    0
-  );
+  const custoTotalGeral = manutencoes.reduce((acc, m) => acc + custoDaOS(m), 0);
 
   // Contagem de OS Prime em atraso (independente dos filtros da listagem,
   // pra sinalizar de forma estável o backlog.)
@@ -150,10 +148,7 @@ export default async function ManutencoesPage({
               )}
               {manutencoes.map((m) => {
                 const problemas = m.checklist.filter((c) => c.temProblema).length;
-                const custoReal = m.itens.reduce(
-                  (acc: number, i: { valor: number }) => acc + i.valor,
-                  0
-                );
+                const custoReal = custoDaOS(m);
                 const estourou = m.custoEstimado && custoReal > m.custoEstimado;
                 return (
                   <tr key={m.id} className="hover:bg-gray-50">

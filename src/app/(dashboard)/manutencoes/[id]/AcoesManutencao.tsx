@@ -39,6 +39,17 @@ export default function AcoesManutencao({
   const [primeMsg, setPrimeMsg] = useState("");
   const [erroMsg, setErroMsg] = useState("");
 
+  async function mensagemDeErro(res: Response): Promise<string> {
+    // 409 traz a razão (transição inválida, veículo inativo) no body.
+    try {
+      const body = await res.json();
+      if (body?.error) return body.error;
+    } catch {
+      /* body não é JSON */
+    }
+    return `Não foi possível atualizar (HTTP ${res.status}).`;
+  }
+
   async function atualizarStatus(novoStatus: string) {
     setLoading(true);
     setErroMsg("");
@@ -49,10 +60,10 @@ export default function AcoesManutencao({
         body: JSON.stringify({ status: novoStatus }),
       });
       if (!res.ok) {
-        setErroMsg(`Não foi possível atualizar (HTTP ${res.status}).`);
+        setErroMsg(await mensagemDeErro(res));
         return;
       }
-      if (novoStatus === "concluida") {
+      if (novoStatus === "concluida" || novoStatus === "cancelada") {
         router.push("/manutencoes");
       } else {
         // Server component re-renderiza com dados frescos.
@@ -76,7 +87,7 @@ export default function AcoesManutencao({
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        setErroMsg(`Não foi possível atualizar (HTTP ${res.status}).`);
+        setErroMsg(await mensagemDeErro(res));
         return;
       }
       setPrimeMsg(msg);
@@ -90,11 +101,12 @@ export default function AcoesManutencao({
 
   return (
     <>
-      {/* Fluxo obrigatório: aguardando → em_andamento → concluida.
-          Não pular etapas — quem aprova ("Iniciar") e quem fecha
-          ("Concluir") são gestos distintos do CMAN. */}
+      {/* Fluxo: aguardando → em_andamento → concluida; cancelar a partir de
+          qualquer aberto. A máquina de estados vale na API (lib/manutencao);
+          aqui só se mostra o gesto cabível — "Iniciar" e "Concluir" são
+          gestos distintos do CMAN. */}
       {(status === "aguardando" || status === "em_andamento") && (
-        <div className="flex gap-3 mt-6 pt-4 border-t">
+        <div className="flex flex-wrap gap-3 mt-6 pt-4 border-t">
           {status === "aguardando" && (
             <button
               onClick={() => atualizarStatus("em_andamento")}
@@ -113,6 +125,17 @@ export default function AcoesManutencao({
               Concluir Manutenção
             </button>
           )}
+          <button
+            onClick={() => {
+              if (window.confirm("Cancelar esta OS? A ação não pode ser desfeita.")) {
+                atualizarStatus("cancelada");
+              }
+            }}
+            disabled={loading}
+            className="bg-white text-red-700 border border-red-300 px-4 py-2 rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors"
+          >
+            Cancelar OS
+          </button>
         </div>
       )}
 

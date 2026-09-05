@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { custoDaOS } from "@/lib/manutencao";
 
 export async function GET(request: NextRequest) {
   const [, authErr] = requireAuth(request);
@@ -36,11 +37,7 @@ export async function GET(request: NextRequest) {
   ]);
 
   // Calculate cost per maintenance
-  const custosPorManutencao = manutencoes.map((m) => {
-    const custoItens = m.itens.reduce((acc, i) => acc + i.valor, 0);
-    const custo = custoItens > 0 ? custoItens : m.valorTotal || 0;
-    return { ...m, custo };
-  });
+  const custosPorManutencao = manutencoes.map((m) => ({ ...m, custo: custoDaOS(m) }));
 
   const custoTotal = custosPorManutencao.reduce((acc, m) => acc + m.custo, 0);
 
