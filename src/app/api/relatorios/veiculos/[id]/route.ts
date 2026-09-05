@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
+import { proximoAlerta } from "@/lib/alertaKm";
 
 export async function GET(
   request: NextRequest,
@@ -60,23 +61,15 @@ export async function GET(
 
   // Proxima revisao (alerta mais proximo)
   const alertasAtivos = veiculo.alertasKm.filter((a) => a.ativo);
-  let proximaRevisao = null;
-  if (alertasAtivos.length > 0) {
-    const kmAtual = veiculo.quilometragem;
-    let menorDiff = Infinity;
-    for (const alerta of alertasAtivos) {
-      const kmProxima = alerta.ultimaTrocaKm + alerta.intervaloKm;
-      const diff = kmProxima - kmAtual;
-      if (diff < menorDiff) {
-        menorDiff = diff;
-        proximaRevisao = {
-          tipo: alerta.tipo,
-          kmFaltando: Math.max(0, diff),
-          kmProxima,
-        };
+  const proximo = proximoAlerta(alertasAtivos, veiculo.quilometragem);
+  const proximaRevisao = proximo
+    ? {
+        tipo: proximo.tipo,
+        kmFaltando: Math.max(0, proximo.kmRestante),
+        kmProxima: proximo.kmProxima,
+        status: proximo.status,
       }
-    }
-  }
+    : null;
 
   // Viagens
   const viagensConcluidas = veiculo.viagens.filter(

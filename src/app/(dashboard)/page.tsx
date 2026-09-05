@@ -19,6 +19,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { verificarToken } from "@/lib/jwt";
 import { diasDoMes, inicioDoMes, fimDoMes } from "@/lib/calendario";
+import { calcularAlertaKm, kmMedioPorDia } from "@/lib/alertaKm";
 import DashboardManutencao from "@/components/dashboard/DashboardManutencao";
 import DashboardTransporte from "@/components/dashboard/DashboardTransporte";
 import DashboardViewSwitcher from "@/components/dashboard/DashboardViewSwitcher";
@@ -126,41 +127,31 @@ async function carregarDadosManutencao() {
     (m) => m.diasRestantes < 0
   );
 
+  const agora = new Date();
+  const kmMedioPorVeiculo = new Map<string, number>();
   const alertasUrgentes = alertasAtivos
     .map((a) => {
       const kmAtual = a.veiculo.quilometragem;
-      const kmProximaTroca = a.ultimaTrocaKm + a.intervaloKm;
-      const kmRestante = kmProximaTroca - kmAtual;
-      const kmParaAlerta = kmProximaTroca - a.alertaAntesDe;
-      const precisaAtencao = kmAtual >= kmParaAlerta;
-
-      const viagensVeiculo = viagensRecentes.filter(
-        (v) => v.veiculoId === a.veiculoId && v.kmFinal && v.kmInicial
-      );
-      let kmMedioDia = 0;
-      let dataEstimada: Date | null = null;
-      if (viagensVeiculo.length >= 2) {
-        const kmTotal = viagensVeiculo.reduce(
-          (acc, v) => acc + ((v.kmFinal || 0) - v.kmInicial),
-          0
+      let kmMedioDia = kmMedioPorVeiculo.get(a.veiculoId);
+      if (kmMedioDia === undefined) {
+        kmMedioDia = kmMedioPorDia(
+          viagensRecentes.filter((v) => v.veiculoId === a.veiculoId),
+          agora
         );
-        const primeiraViagem = new Date(
-          Math.min(...viagensVeiculo.map((v) => new Date(v.dataSaida).getTime()))
-        );
-        const dias = Math.max(1, diasEntre(primeiraViagem, new Date()));
-        kmMedioDia = kmTotal / dias;
-        if (kmMedioDia > 0 && kmRestante > 0) {
-          const diasAteProxima = Math.ceil(kmRestante / kmMedioDia);
-          dataEstimada = new Date();
-          dataEstimada.setDate(dataEstimada.getDate() + diasAteProxima);
-        }
+        kmMedioPorVeiculo.set(a.veiculoId, kmMedioDia);
       }
+      const { kmProxima, kmRestante, status, dataEstimada } = calcularAlertaKm(
+        a,
+        kmAtual,
+        { kmMedioDia, hoje: agora }
+      );
       return {
         ...a,
         kmAtual,
-        kmProximaTroca,
+        kmProximaTroca: kmProxima,
         kmRestante,
-        precisaAtencao,
+        status,
+        precisaAtencao: status !== "ok",
         kmMedioDia: Math.round(kmMedioDia * 10) / 10,
         dataEstimada,
       };

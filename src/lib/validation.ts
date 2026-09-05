@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { alertaKmTipoEnum } from "./alertaKm";
 
 /**
  * Helper to validate request body against a Zod schema.
@@ -408,20 +409,8 @@ export const manutencaoUpdateSchema = manutencaoCreateSchema.partial().extend({
 // AlertaKm
 // ─────────────────────────────────────────────────────────
 
-// Reflete os tipos definidos no UI em (dashboard)/veiculos/[id]/editar/page.tsx
-// e os labels em (dashboard)/veiculos/[id]/page.tsx. Ao adicionar um tipo
-// novo, atualizar os 3 lugares.
-export const alertaKmTipoEnum = z.enum([
-  "troca_oleo",
-  "troca_pneus",
-  "revisao",
-  "alinhamento",
-  "filtro_ar",
-  "filtro_combustivel",
-  "correia_dentada",
-  "fluido_freio",
-  "fluido_arrefecimento",
-]);
+// O enum de tipos e os labels moram em lib/alertaKm.ts (dono do conceito).
+export { alertaKmTipoEnum } from "./alertaKm";
 
 export const alertaKmCreateSchema = z.object({
   tipo: alertaKmTipoEnum,
