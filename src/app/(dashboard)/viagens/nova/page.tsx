@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
+import { calcularTotalDiarias, validarPcdp, mensagemErroViagem } from "@/lib/viagem";
 
 interface Veiculo {
   id: string;
@@ -65,7 +66,7 @@ function NovaViagemForm() {
   // Auto-calc totalDiarias
   const [diaria, setDiaria] = useState<number | null>(null);
   const [qtdDiarias, setQtdDiarias] = useState<number | null>(null);
-  const totalDiarias = diaria && qtdDiarias ? diaria * qtdDiarias : null;
+  const totalDiarias = calcularTotalDiarias(diaria, qtdDiarias);
 
   useEffect(() => {
     fetch("/api/veiculos").then((r) => r.json()).then(setVeiculos);
@@ -119,9 +120,10 @@ function NovaViagemForm() {
     // do form ou state controlado, então propagamos do state.
     if (agendamentoId) data.agendamentoId = agendamentoId;
 
-    // PCDP validation: if diárias exist, PCDP número is required
-    if (diaria && qtdDiarias && !data.pcdpNumero) {
-      alert("PCDP Motorista 1 é obrigatório quando há diárias.");
+    // Mesma regra da API (módulo puro): PCDP obrigatória quando há diárias.
+    const pcdp = validarPcdp({ diaria, qtdDiarias, pcdpNumero: data.pcdpNumero as string | undefined });
+    if (!pcdp.ok) {
+      alert(mensagemErroViagem(pcdp.erro));
       setShowPcdp1(true);
       setLoading(false);
       return;

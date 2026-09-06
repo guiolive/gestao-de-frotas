@@ -4,6 +4,13 @@ import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
 import { parsePagination, paginated } from "@/lib/pagination";
+import { validateBody, viagemCreateSchema } from "@/lib/validation";
+import {
+  STATUS_VIAGEM_ABERTOS,
+  validarNovaViagem,
+  dadosCriacao,
+  mensagemErroViagem,
+} from "@/lib/viagem";
 
 export async function GET(request: NextRequest) {
   const [, authErr] = requireAuth(request);
@@ -75,37 +82,36 @@ export async function POST(request: NextRequest) {
   const [user, authErr] = requireAuth(request);
   if (authErr) return authErr;
 
-  const body = await request.json();
+  const [body, valErr] = await validateBody(request, viagemCreateSchema);
+  if (valErr) return valErr;
 
-  // Validate required fields
-  const required = ["veiculoId", "motoristaId", "origem", "destino", "dataSaida", "kmInicial"];
-  for (const field of required) {
-    if (!body[field]) {
-      return Response.json(
-        { error: `Campo obrigatório: ${field}` },
-        { status: 400 }
-      );
-    }
-  }
-
-  // Validate vehicle is available
   const veiculo = await prisma.veiculo.findUnique({
     where: { id: body.veiculoId },
+    select: { status: true },
   });
-
   if (!veiculo) {
     return Response.json({ error: "Veículo não encontrado" }, { status: 404 });
   }
 
-  // Check for conflicting trips (same vehicle, overlapping dates, not cancelled)
-  const dataSaida = new Date(body.dataSaida);
+  // Regras de negócio (veículo em OS/baixado, PCDP, km) são do módulo.
+  const validacao = validarNovaViagem(body, veiculo.status);
+  if (!validacao.ok) {
+    return Response.json(
+      { error: mensagemErroViagem(validacao.erro, veiculo.status), code: validacao.erro },
+      { status: 400 }
+    );
+  }
+
+  // Conflitos de agenda (viagem × viagem, viagem × OS) são I/O e ficam aqui.
+  const dataSaida = body.dataSaida;
+  const fimPeriodo = body.dataRetorno ?? dataSaida;
   const conflictingTrip = await prisma.viagem.findFirst({
     where: {
       veiculoId: body.veiculoId,
       status: { not: "cancelada" },
-      dataSaida: { lte: body.dataRetorno ? new Date(body.dataRetorno) : dataSaida },
+      dataSaida: { lte: fimPeriodo },
       OR: [
-        { dataRetorno: null, status: { in: ["agendada", "em_andamento"] } },
+        { dataRetorno: null, status: { in: [...STATUS_VIAGEM_ABERTOS] } },
         { dataRetorno: { gte: dataSaida } },
       ],
     },
@@ -121,12 +127,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check for conflicting maintenance
   const conflictingMaintenance = await prisma.manutencao.findFirst({
     where: {
       veiculoId: body.veiculoId,
       status: { in: [...STATUS_OS_ABERTOS] },
-      dataEntrada: { lte: body.dataRetorno ? new Date(body.dataRetorno) : dataSaida },
+      dataEntrada: { lte: fimPeriodo },
       OR: [
         { previsaoSaida: null },
         { previsaoSaida: { gte: dataSaida } },
@@ -138,21 +143,6 @@ export async function POST(request: NextRequest) {
     return Response.json(
       { error: "Veículo possui manutenção agendada ou em andamento no período" },
       { status: 409 }
-    );
-  }
-
-  // PCDP obrigatório quando há diárias
-  if (body.diaria && body.qtdDiarias && !body.pcdpNumero) {
-    return Response.json(
-      { error: "PCDP Motorista 1 é obrigatório quando há diárias" },
-      { status: 400 }
-    );
-  }
-
-  if (veiculo.status === "manutencao" || veiculo.status === "inativo") {
-    return Response.json(
-      { error: `Veículo não disponível (status: ${veiculo.status})` },
-      { status: 400 }
     );
   }
 
@@ -176,38 +166,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const viagem = await prisma.viagem.create({
-    data: {
-      veiculoId: body.veiculoId,
-      agendamentoId: body.agendamentoId || null,
-      motoristaId: body.motoristaId,
-      motorista2Id: body.motorista2Id || null,
-      origem: body.origem,
-      destino: body.destino,
-      dataSaida: new Date(body.dataSaida),
-      kmInicial: Number(body.kmInicial),
-      observacoes: body.observacoes || null,
-      processoSei: body.processoSei || null,
-      unidadeId: body.unidadeId || null,
-      ufDestino: body.ufDestino || null,
-      diaria: body.diaria ? Number(body.diaria) : null,
-      solicitante: body.solicitante || null,
-      kmPorTrecho: body.kmPorTrecho ? Number(body.kmPorTrecho) : null,
-      qtdDiarias: body.qtdDiarias ? Number(body.qtdDiarias) : null,
-      pcdpNumero: body.pcdpNumero || null,
-      pcdpData: body.pcdpData || null,
-      pcdpValor: body.pcdpValor ? Number(body.pcdpValor) : null,
-      pcdp2Solicitante: body.pcdp2Solicitante || null,
-      pcdp2Numero: body.pcdp2Numero || null,
-      pcdp2Data: body.pcdp2Data || null,
-      pcdp2Valor: body.pcdp2Valor ? Number(body.pcdp2Valor) : null,
-      totalDiarias: (() => {
-        const d = body.diaria ? Number(body.diaria) : null;
-        const q = body.qtdDiarias ? Number(body.qtdDiarias) : null;
-        return d && q ? d * q : (body.totalDiarias ? Number(body.totalDiarias) : null);
-      })(),
-    },
-  });
+  const viagem = await prisma.viagem.create({ data: dadosCriacao(body) });
 
   await logAudit({
     request,
