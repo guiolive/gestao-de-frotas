@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { alertaKmTipoEnum } from "./alertaKm";
 import { manutencaoStatusEnum } from "./manutencao";
+import { viagemStatusEnum } from "./viagem";
 
 /**
  * Helper to validate request body against a Zod schema.
@@ -134,18 +135,25 @@ export const unidadeCreateSchema = z.object({
 
 export const unidadeUpdateSchema = unidadeCreateSchema.partial();
 
+/**
+ * `null` em campo obrigatório vira NaN antes da coerção, para o zod recusar
+ * (400) em vez de `Number(null) = 0` ou `new Date(null) = 1970`. O form de
+ * editar manda `null` para todo campo esvaziado.
+ */
+const obrigatorio = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === null ? Number.NaN : v), schema);
+
+/** Viagem nasce `agendada`; status só muda pelo PUT. */
 export const viagemCreateSchema = z.object({
   veiculoId: z.string().min(1),
+  agendamentoId: z.string().optional().nullable(),
   motoristaId: z.string().min(1),
   origem: z.string().trim().min(1).max(200),
   destino: z.string().trim().min(1).max(200),
-  dataSaida: z.coerce.date(),
+  dataSaida: obrigatorio(z.coerce.date()),
   dataRetorno: z.coerce.date().optional().nullable(),
-  kmInicial: z.coerce.number().nonnegative(),
+  kmInicial: obrigatorio(z.coerce.number().nonnegative()),
   kmFinal: z.coerce.number().nonnegative().optional().nullable(),
-  status: z
-    .enum(["agendada", "em_andamento", "concluida", "cancelada"])
-    .default("agendada"),
   observacoes: z.string().max(2000).optional().nullable(),
   processoSei: z.string().max(100).optional().nullable(),
   unidadeId: z.string().optional().nullable(),
@@ -165,7 +173,9 @@ export const viagemCreateSchema = z.object({
   totalDiarias: z.coerce.number().nonnegative().optional().nullable(),
 });
 
-export const viagemUpdateSchema = viagemCreateSchema.partial();
+export const viagemUpdateSchema = viagemCreateSchema
+  .partial()
+  .extend({ status: viagemStatusEnum.optional() });
 
 // ─────────────────────────────────────────────────────────
 // Agendamento — reserva de veículo por unidade

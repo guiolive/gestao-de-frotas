@@ -2,6 +2,8 @@ import { prisma } from "@/lib/prisma";
 import { NextRequest } from "next/server";
 import { requireAuth, requireTipo } from "@/lib/authz";
 import { logAudit } from "@/lib/audit";
+import { validateBody, viagemUpdateSchema } from "@/lib/validation";
+import { planejarAtualizacao, mensagemErroViagem } from "@/lib/viagem";
 
 export async function GET(
   request: NextRequest,
@@ -37,97 +39,66 @@ export async function PUT(
   if (authErr) return authErr;
 
   const { id } = params;
-  const body = await request.json();
 
-  // Fetch current viagem to check business rules
+  const [patch, valErr] = await validateBody(request, viagemUpdateSchema);
+  if (valErr) return valErr;
+
   const current = await prisma.viagem.findUnique({
     where: { id },
-    include: { veiculo: true },
+    include: { veiculo: { select: { status: true, quilometragem: true } } },
   });
-
   if (!current) {
     return Response.json({ error: "Viagem não encontrada" }, { status: 404 });
   }
 
-  // Build update data
-  const data: Record<string, unknown> = {};
-
-  if (body.veiculoId !== undefined) data.veiculoId = body.veiculoId;
-  if (body.agendamentoId !== undefined) data.agendamentoId = body.agendamentoId || null;
-  if (body.motoristaId !== undefined) data.motoristaId = body.motoristaId;
-  if (body.motorista2Id !== undefined) data.motorista2Id = body.motorista2Id || null;
-  if (body.origem !== undefined) data.origem = body.origem;
-  if (body.destino !== undefined) data.destino = body.destino;
-  if (body.dataSaida !== undefined) data.dataSaida = new Date(body.dataSaida);
-  if (body.dataRetorno !== undefined) data.dataRetorno = body.dataRetorno ? new Date(body.dataRetorno) : null;
-  if (body.kmInicial !== undefined) data.kmInicial = Number(body.kmInicial);
-  if (body.kmFinal !== undefined) data.kmFinal = body.kmFinal ? Number(body.kmFinal) : null;
-  if (body.status !== undefined) data.status = body.status;
-  if (body.observacoes !== undefined) data.observacoes = body.observacoes || null;
-  if (body.processoSei !== undefined) data.processoSei = body.processoSei || null;
-  if (body.unidadeId !== undefined) data.unidadeId = body.unidadeId || null;
-  if (body.ufDestino !== undefined) data.ufDestino = body.ufDestino || null;
-  if (body.diaria !== undefined) data.diaria = body.diaria ? Number(body.diaria) : null;
-  if (body.solicitante !== undefined) data.solicitante = body.solicitante || null;
-  if (body.kmPorTrecho !== undefined) data.kmPorTrecho = body.kmPorTrecho ? Number(body.kmPorTrecho) : null;
-  if (body.qtdDiarias !== undefined) data.qtdDiarias = body.qtdDiarias ? Number(body.qtdDiarias) : null;
-  if (body.pcdpNumero !== undefined) data.pcdpNumero = body.pcdpNumero || null;
-  if (body.pcdpData !== undefined) data.pcdpData = body.pcdpData || null;
-  if (body.pcdpValor !== undefined) data.pcdpValor = body.pcdpValor ? Number(body.pcdpValor) : null;
-  if (body.pcdp2Solicitante !== undefined) data.pcdp2Solicitante = body.pcdp2Solicitante || null;
-  if (body.pcdp2Numero !== undefined) data.pcdp2Numero = body.pcdp2Numero || null;
-  if (body.pcdp2Data !== undefined) data.pcdp2Data = body.pcdp2Data || null;
-  if (body.pcdp2Valor !== undefined) data.pcdp2Valor = body.pcdp2Valor ? Number(body.pcdp2Valor) : null;
-  if (body.totalDiarias !== undefined) data.totalDiarias = body.totalDiarias ? Number(body.totalDiarias) : null;
-
-  // Business rules based on status change
-  if (body.status === "em_andamento") {
-    // Set vehicle to em_uso
-    await prisma.veiculo.update({
-      where: { id: current.veiculoId },
-      data: { status: "em_uso" },
-    });
-  }
-
-  if (body.status === "concluida") {
-    const kmFinal = body.kmFinal ? Number(body.kmFinal) : current.kmFinal;
-    if (kmFinal) {
-      // Update vehicle quilometragem and set to disponivel
-      await prisma.veiculo.update({
-        where: { id: current.veiculoId },
-        data: {
-          quilometragem: kmFinal,
-          status: "disponivel",
+  // Toda decisão (patch parcial, totalDiarias, dataRetorno ao concluir,
+  // PCDP/km sobre o estado resultante, transição de status e efeito no
+  // veículo) é do módulo; aqui só I/O.
+  const plano = planejarAtualizacao(current, patch, {
+    agora: new Date(),
+    veiculo: current.veiculo,
+  });
+  if (!plano.ok) {
+    if (plano.erro === "transicao_invalida") {
+      return Response.json(
+        {
+          error: `Transição de status inválida: ${plano.de} → ${plano.para}`,
+          code: plano.erro,
+          de: plano.de,
+          para: plano.para,
         },
-      });
-    } else {
-      await prisma.veiculo.update({
-        where: { id: current.veiculoId },
-        data: { status: "disponivel" },
-      });
+        { status: 409 }
+      );
     }
-    // Set dataRetorno to now if not provided
-    if (!body.dataRetorno && !current.dataRetorno) {
-      data.dataRetorno = new Date();
-    }
+    return Response.json(
+      { error: mensagemErroViagem(plano.erro, current.veiculo.status), code: plano.erro },
+      { status: 400 }
+    );
   }
 
-  if (body.status === "cancelada" && current.veiculo.status === "em_uso") {
-    await prisma.veiculo.update({
-      where: { id: current.veiculoId },
-      data: { status: "disponivel" },
+  // Viagem e veículo na mesma transação: sem isso, uma falha no meio deixa
+  // o veículo "em_uso" sem viagem em andamento (ou o contrário).
+  const viagem = await prisma.$transaction(async (tx) => {
+    await tx.viagem.update({ where: { id }, data: plano.viagem });
+
+    // Veículo soft-deletado (status="inativo") nunca volta sozinho — guard
+    // de I/O via updateMany, pra não reativar inativos sem ação explícita.
+    if (plano.veiculo) {
+      await tx.veiculo.updateMany({
+        where: { id: current.veiculoId, status: { not: "inativo" } },
+        data: plano.veiculo,
+      });
+    }
+
+    return tx.viagem.findUnique({
+      where: { id },
+      include: {
+        veiculo: true,
+        motorista: true,
+        motorista2: true,
+        unidade: true,
+      },
     });
-  }
-
-  const viagem = await prisma.viagem.update({
-    where: { id },
-    data,
-    include: {
-      veiculo: true,
-      motorista: true,
-      motorista2: true,
-      unidade: true,
-    },
   });
 
   await logAudit({
@@ -136,7 +107,7 @@ export async function PUT(
     acao: "update",
     recurso: "viagem",
     recursoId: id,
-    dados: { status: body.status, ...data },
+    dados: { status: patch.status, ...plano.viagem, veiculo: plano.veiculo },
   });
 
   return Response.json(viagem);

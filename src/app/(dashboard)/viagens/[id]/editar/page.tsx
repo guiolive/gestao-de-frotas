@@ -2,6 +2,14 @@
 
 import { useRouter, useParams } from "next/navigation";
 import { useState, useEffect } from "react";
+import { calcularTotalDiarias, validarPcdp, mensagemErroViagem, transicoesDe } from "@/lib/viagem";
+
+const STATUS_LABEL: Record<string, string> = {
+  agendada: "Agendada",
+  em_andamento: "Em Andamento",
+  concluida: "Concluída",
+  cancelada: "Cancelada",
+};
 
 interface Veiculo {
   id: string;
@@ -78,7 +86,7 @@ export default function EditarViagemPage() {
   // Auto-calc totalDiarias
   const [diaria, setDiaria] = useState<number | null>(null);
   const [qtdDiarias, setQtdDiarias] = useState<number | null>(null);
-  const totalDiarias = diaria && qtdDiarias ? diaria * qtdDiarias : null;
+  const totalDiarias = calcularTotalDiarias(diaria, qtdDiarias);
 
   useEffect(() => {
     fetch(`/api/viagens/${params.id}`).then((r) => r.json()).then((data) => {
@@ -108,9 +116,10 @@ export default function EditarViagemPage() {
       data.totalDiarias = totalDiarias;
     }
 
-    // PCDP validation: if diárias exist, PCDP número is required
-    if (diaria && qtdDiarias && !data.pcdpNumero) {
-      alert("PCDP Motorista 1 é obrigatório quando há diárias.");
+    // Mesma regra da API (módulo puro): PCDP obrigatória quando há diárias.
+    const pcdp = validarPcdp({ diaria, qtdDiarias, pcdpNumero: data.pcdpNumero as string | null });
+    if (!pcdp.ok) {
+      alert(mensagemErroViagem(pcdp.erro));
       setShowPcdp1(true);
       setLoading(false);
       return;
@@ -199,11 +208,14 @@ export default function EditarViagemPage() {
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              {/* Só o status atual e as transições permitidas a partir dele;
+                  a API recusa o resto de qualquer forma (409). */}
               <select name="status" defaultValue={viagem.status} className={inputClass}>
-                <option value="agendada">Agendada</option>
-                <option value="em_andamento">Em Andamento</option>
-                <option value="concluida">Concluída</option>
-                <option value="cancelada">Cancelada</option>
+                {transicoesDe(viagem.status).map((s) => (
+                  <option key={s} value={s}>
+                    {STATUS_LABEL[s] ?? s}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
